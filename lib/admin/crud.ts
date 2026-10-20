@@ -78,6 +78,25 @@ export async function getResource(table: string, id: string) {
   });
 }
 
+export async function getCustomerProfile(id: string) {
+  return withPool(async (pool) => {
+    const customer = await pool.query(`SELECT * FROM customers WHERE id::text = $1`, [id]);
+    const orders = await pool.query(
+      `SELECT DISTINCT ON (o.id) o.invoice_code, o.status, o.total_amount, o.unique_amount, oi.product_name
+       FROM orders o
+       LEFT JOIN order_items oi ON oi.order_id = o.id
+       WHERE o.customer_id::text = $1
+       ORDER BY o.id DESC
+       LIMIT 10`,
+      [id],
+    );
+    return {
+      customer: (customer.rows[0] as Record<string, unknown> | undefined) ?? null,
+      orders: orders.rows as Record<string, unknown>[],
+    };
+  });
+}
+
 export async function mutateResource(
   table: string,
   action: "insert" | "update" | "delete",

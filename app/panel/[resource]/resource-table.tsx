@@ -105,6 +105,9 @@ export function ResourceTable({ resource }: { resource: string }) {
                     </td>
                   ))}
                   <td className="whitespace-nowrap px-4 py-3">
+                    {resource === "customers" ? (
+                      <Link href={`/panel/customers/${encodeURIComponent(id)}/view`} className="mr-2 inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">Lihat</Link>
+                    ) : null}
                     <Link href={`/panel/${resource}/${encodeURIComponent(id)}`} className="mr-2 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-primary">Edit</Link>
                     <button type="button" className="inline-flex rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-destructive" onClick={() => remove(id)}>Hapus</button>
                   </td>

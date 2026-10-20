@@ -1,4 +1,4 @@
-# Entity Relationship Document — **NaikFase**
+# Entity Relationship Document — **BisnisLevelUp.id**
 > *Skema Database PostgreSQL · Versi 1.0 · Oktober 2026*
 
 **Database:** PostgreSQL (Neon Serverless)  
@@ -52,7 +52,7 @@
 
 ```sql
 -- ============================================================
--- NaikFase — PostgreSQL Schema
+-- BisnisLevelUp.id — PostgreSQL Schema
 -- Platform: Neon Serverless PostgreSQL
 -- Generated: Oktober 2026
 -- ============================================================
@@ -1104,7 +1104,7 @@ payment_methods
 
 ```sql
 -- ============================================================
--- SEED DATA — NaikFase Platform
+-- SEED DATA — BisnisLevelUp.id Platform
 -- ============================================================
 
 -- ============================================================
@@ -1383,7 +1383,7 @@ INSERT INTO payment_instructions (payment_method_id, title, content, sort_order)
 
 -- Transfer Manual BCA
 (18, 'Instruksi Transfer Manual BCA',
-'<ol><li>Transfer sesuai nominal TEPAT (termasuk 3 digit unik terakhir) ke rekening berikut:</li><li><strong>Bank BCA: 0123456789</strong></li><li><strong>Atas Nama: PT Syaamil NaikFase</strong></li><li>Simpan bukti transfer Anda</li><li>Konfirmasi pembayaran via WhatsApp ke 0811-xxxxxx atau upload bukti di halaman status</li></ol>',
+'<ol><li>Transfer sesuai nominal TEPAT (termasuk 3 digit unik terakhir) ke rekening berikut:</li><li><strong>Bank BCA: 0123456789</strong></li><li><strong>Atas Nama: PT Syaamil BisnisLevelUp.id</strong></li><li>Simpan bukti transfer Anda</li><li>Konfirmasi pembayaran via WhatsApp ke 0811-xxxxxx atau upload bukti di halaman status</li></ol>',
 1);
 
 
@@ -1397,8 +1397,8 @@ INSERT INTO notification_templates (event_trigger, channel, subject, message_con
 ('PAYMENT_SUCCESS',  'WHATSAPP', NULL,
  '✅ Pembayaran Berhasil!\n\nHalo {nama}, pembayaran kamu sebesar Rp {nominal} via {metode} telah kami terima.\n\n🎯 Invoice: {invoice}\n\nSilakan login ke dashboard kamu untuk mulai mengerjakan audit:\n👉 {dashboard_url}\n\nSemangat, perjalanan naik fase dimulai! 🚀'),
 
-('PAYMENT_SUCCESS',  'EMAIL',    '[NaikFase] Pembayaran Berhasil — Mulai Auditmu Sekarang',
- '<h2>Pembayaran Berhasil! ✅</h2><p>Halo {nama},</p><p>Pembayaran sebesar <strong>Rp {nominal}</strong> untuk <strong>{produk}</strong> telah berhasil kami terima.</p><p><strong>Invoice:</strong> {invoice}</p><p>Klik tombol di bawah untuk masuk ke dashboard dan mulai audit bisnismu:</p><a href="{dashboard_url}" style="background:#3B82F6;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;">Mulai Audit Sekarang →</a><br><br><p>Salam,<br>Tim NaikFase</p>'),
+('PAYMENT_SUCCESS',  'EMAIL',    '[BisnisLevelUp.id] Pembayaran Berhasil — Mulai Auditmu Sekarang',
+ '<h2>Pembayaran Berhasil! ✅</h2><p>Halo {nama},</p><p>Pembayaran sebesar <strong>Rp {nominal}</strong> untuk <strong>{produk}</strong> telah berhasil kami terima.</p><p><strong>Invoice:</strong> {invoice}</p><p>Klik tombol di bawah untuk masuk ke dashboard dan mulai audit bisnismu:</p><a href="{dashboard_url}" style="background:#3B82F6;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;">Mulai Audit Sekarang →</a><br><br><p>Salam,<br>Tim BisnisLevelUp.id</p>'),
 
 ('PAYMENT_EXPIRED',  'WHATSAPP', NULL,
  '⏰ Batas waktu pembayaran untuk order {invoice} telah habis.\n\nIngin melanjutkan pembelian? Kunjungi naikfase.id dan lakukan order baru. Kami tunggu! 🙏'),
@@ -1407,10 +1407,10 @@ INSERT INTO notification_templates (event_trigger, channel, subject, message_con
  '🎉 Audit Selesai!\n\nHalo {nama}, audit bisnis kamu untuk *{audit_name}* telah selesai.\n\n📊 Skor Kamu: {skor}%\n🏷️ Status: {status}\n\nLaporan PDF kamu sedang disiapkan dan akan dikirim dalam beberapa menit. Pantau di dashboard-mu:\n👉 {dashboard_url}'),
 
 ('PDF_READY',        'WHATSAPP', NULL,
- '📄 Laporan PDF Siap!\n\nHalo {nama}, laporan audit bisnismu sudah bisa didownload:\n👉 {pdf_url}\n\nLink aktif selama 7 hari. Semangat naik fase! 🚀\n\n_NaikFase.id — Audit Bisnis · Temukan Fasemu · Naik Level_'),
+ '📄 Laporan PDF Siap!\n\nHalo {nama}, laporan audit bisnismu sudah bisa didownload:\n👉 {pdf_url}\n\nLink aktif selama 7 hari. Semangat naik fase! 🚀\n\n_BisnisLevelUp.id.id — Audit Bisnis · Temukan Fasemu · Naik Level_'),
 
-('PDF_READY',        'EMAIL',    '[NaikFase] Laporan Audit Bisnismu Sudah Siap 📄',
- '<h2>Laporan Auditmu Sudah Siap! 📄</h2><p>Halo {nama},</p><p>Laporan audit bisnis kamu untuk <strong>{audit_name}</strong> sudah selesai digenerate.</p><p><strong>Skor Keseluruhan:</strong> {skor}%<br><strong>Status:</strong> {status}</p><a href="{pdf_url}" style="background:#10B981;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;">Download Laporan PDF →</a><br><br><p>Link aktif selama 7 hari dari tanggal email ini.</p><p>Salam,<br>Tim NaikFase</p>');
+('PDF_READY',        'EMAIL',    '[BisnisLevelUp.id] Laporan Audit Bisnismu Sudah Siap 📄',
+ '<h2>Laporan Auditmu Sudah Siap! 📄</h2><p>Halo {nama},</p><p>Laporan audit bisnis kamu untuk <strong>{audit_name}</strong> sudah selesai digenerate.</p><p><strong>Skor Keseluruhan:</strong> {skor}%<br><strong>Status:</strong> {status}</p><a href="{pdf_url}" style="background:#10B981;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;">Download Laporan PDF →</a><br><br><p>Link aktif selama 7 hari dari tanggal email ini.</p><p>Salam,<br>Tim BisnisLevelUp.id</p>');
 
 
 -- ============================================================
@@ -1444,16 +1444,16 @@ INSERT INTO recommendation_library (type, title, author_or_name, description, ex
  'https://naikfase.id/coaching', 'all', 'coaching,kepemimpinan,syariah', true),
 
 -- Kelas Internal (Upsell)
-('KELAS_INTERNAL', 'Kelas Membangun Tim Pertamamu', 'NaikFase',
+('KELAS_INTERNAL', 'Kelas Membangun Tim Pertamamu', 'BisnisLevelUp.id',
  'Belajar cara merekrut, onboard, dan memotivasi karyawan pertama bisnismu. Untuk owner yang baru melewati fase survival.',
  'https://naikfase.id/kelas/tim-pertama', '1,2', 'SDM,rekrutmen,delegasi', true),
 
-('KELAS_INTERNAL', 'Kelas Keuangan Bisnis untuk Pengusaha', 'NaikFase',
+('KELAS_INTERNAL', 'Kelas Keuangan Bisnis untuk Pengusaha', 'BisnisLevelUp.id',
  'Dari laporan L/R sederhana hingga analisis arus kas dan BEP. Tidak perlu background akuntansi.',
  'https://naikfase.id/kelas/keuangan-bisnis', '1,2', 'keuangan,akuntansi,BEP', true),
 
 -- Ebook
-('EBOOK', 'Ebook: Panduan BEP & Harga Jual', 'Tim NaikFase',
+('EBOOK', 'Ebook: Panduan BEP & Harga Jual', 'Tim BisnisLevelUp.id',
  'Template Excel + panduan menghitung harga jual yang tepat dan titik impas (BEP) bulanan bisnismu.',
  'https://naikfase.id/ebook/bep-harga', '1,2', 'keuangan,BEP,harga,template', true),
 
@@ -1543,7 +1543,7 @@ INSERT INTO test_sessions (customer_id, order_id, audit_transition_id, responden
 -- ============================================================
 INSERT INTO testimonials (name, role, content, rating, business_type, is_featured, sort_order) VALUES
 ('Budi Santoso',     'Owner Toko Berkah Mandiri, Bandung',
- 'Saya pikir sudah cukup maju karena omset sudah stabil. Ternyata setelah tes NaikFase, saya baru sadar kalau masih di Fase 1 karena belum ada tim dan keuangan masih tercampur. Laporan ini membuka mata saya.',
+ 'Saya pikir sudah cukup maju karena omset sudah stabil. Ternyata setelah tes BisnisLevelUp.id, saya baru sadar kalau masih di Fase 1 karena belum ada tim dan keuangan masih tercampur. Laporan ini membuka mata saya.',
  5, 'Ritel', true, 1),
 ('Dewi Anggraeni',   'Owner Klinik Kecantikan, Bandung',
  'Yang paling berkesan adalah bagian rekomendasi — langsung spesifik, buku apa yang harus dibaca, mentor siapa yang harus ditemui. Bukan saran generik.',

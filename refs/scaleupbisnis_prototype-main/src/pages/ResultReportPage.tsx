@@ -478,7 +478,7 @@ export const ResultReportPage: React.FC<ResultReportPageProps> = ({
                 Bulan 3 (90 Hari)
               </div>
               <ul style={{ paddingLeft: '18px', fontSize: '0.88rem', color: '#e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <li>Lakukan audit ulang NaikFase untuk memverifikasi kenaikan ke Fase 2 (Cash Growth).</li>
+                <li>Lakukan audit ulang BisnisLevelUp.id untuk memverifikasi kenaikan ke Fase 2 (Cash Growth).</li>
                 <li>Bangun 2 kanal pemasaran berulang (repeat order engine).</li>
                 <li>Tetapkan target cash buffer cadangan kas minimal 3 bulan operasional.</li>
               </ul>

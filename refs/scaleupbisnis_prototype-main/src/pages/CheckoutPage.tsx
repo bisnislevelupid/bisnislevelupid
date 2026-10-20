@@ -503,7 +503,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         style={{ marginTop: '4px', accentColor: '#0284c7' }}
                       />
                       <label htmlFor="terms" style={{ fontSize: '0.82rem', color: '#64748b', lineHeight: 1.5 }}>
-                        Saya menyetujui Ketentuan Layanan & Kebijakan Privasi NaikFase. Hasil audit akan dikirimkan ke email terdaftar.
+                        Saya menyetujui Ketentuan Layanan & Kebijakan Privasi BisnisLevelUp.id. Hasil audit akan dikirimkan ke email terdaftar.
                       </label>
                     </div>
 

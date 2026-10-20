@@ -95,7 +95,7 @@ export function App() {
               : q.question_number === 11 
               ? 'Buku: The E-Myth Revisited' 
               : 'Ebook: Panduan Pemisahan Kas Usaha',
-            recommendation_author: q.question_number === 9 ? 'Tim Finansial NaikFase' : 'Michael E. Gerber',
+            recommendation_author: q.question_number === 9 ? 'Tim Finansial BisnisLevelUp.id' : 'Michael E. Gerber',
             recommendation_type: q.question_number === 9 ? 'KELAS_INTERNAL' : 'BUKU'
           });
         }

@@ -1,4 +1,4 @@
-# Product Requirements Document — **NaikFase**
+# Product Requirements Document — **BisnisLevelUp.id**
 > *Audit Bisnis · Temukan Fasemu · Naik Level*
 
 **Versi:** 1.0  
@@ -11,11 +11,11 @@
 
 ## 1. Ringkasan Eksekutif
 
-**NaikFase** adalah platform alat tes bisnis berbayar berbasis web yang membantu para pengusaha Indonesia mengidentifikasi secara ilmiah di **fase mana** bisnis mereka berada saat ini, apa **krisis yang sedang menghadang**, dan langkah konkret apa yang harus dilakukan untuk **naik ke fase berikutnya**.
+**BisnisLevelUp.id** adalah platform alat tes bisnis berbayar berbasis web yang membantu para pengusaha Indonesia mengidentifikasi secara ilmiah di **fase mana** bisnis mereka berada saat ini, apa **krisis yang sedang menghadang**, dan langkah konkret apa yang harus dilakukan untuk **naik ke fase berikutnya**.
 
 Alat audit ini adalah distilasi dari **pengalaman 30+ tahun Riza Zacharias**, pendiri dan owner Syaamil Group Bandung, yang telah membangun dan mengamati ratusan bisnis dari fase survival hingga ekspansi. Bukan teori di kelas — ini adalah checklist lapangan yang telah dipakai untuk mendiagnosis bisnis nyata.
 
-**Nama Platform:** NaikFase  
+**Nama Platform:** BisnisLevelUp.id  
 **Tagline:** *"Audit Bisnis. Temukan Fasemu. Naik Level."*  
 **Domain target:** naikfase.id  
 **Model bisnis:** B2C — one-time purchase per sesi tes, dengan upsell ke produk lanjutan.
@@ -38,9 +38,9 @@ Pengusaha di Fase 1 (Survival) yang belajar materi Fase 4 (Talent Building) tida
 
 **The core problem:** Tidak ada alat diagnosis cepat, sahih, dan terjangkau yang bisa memberi tahu seorang pengusaha: *"Kamu sekarang ada di Fase ini, dengan gap di sini, dan kamu perlu melakukan ini."*
 
-### 2.2 Solusi: NaikFase
+### 2.2 Solusi: BisnisLevelUp.id
 
-NaikFase adalah **alat audit manajemen terstruktur** yang terdiri dari serangkaian checklist YA/TIDAK berbasis 8 dimensi bisnis — dari Produksi hingga Kepemimpinan Syariah — yang:
+BisnisLevelUp.id adalah **alat audit manajemen terstruktur** yang terdiri dari serangkaian checklist YA/TIDAK berbasis 8 dimensi bisnis — dari Produksi hingga Kepemimpinan Syariah — yang:
 
 1. Mendeteksi fase bisnis user saat ini (Fase 1–5)
 2. Mendiagnosis **krisis** yang mungkin sedang terjadi
@@ -183,7 +183,7 @@ Landing page adalah **aset penjualan utama**. Harus berfungsi sebagai salesman 2
 >
 > Kalkulasi visual (interaktif): biaya kelas yang salah fase × waktu terbuang × opportunity cost.
 >
-> **Punchline:** *"Satu audit NaikFase yang tepat bisa menghemat ratusan juta rupiah kelas yang tidak relevan."*
+> **Punchline:** *"Satu audit BisnisLevelUp.id yang tepat bisa menghemat ratusan juta rupiah kelas yang tidak relevan."*
 
 ---
 
@@ -199,7 +199,7 @@ Landing page adalah **aset penjualan utama**. Harus berfungsi sebagai salesman 2
 
 **Section 7 — WHAT YOU'LL DISCOVER (Product Benefits)**
 
-> **Judul:** *"Yang Akan Kamu Temukan di Dalam Laporan NaikFase-mu"*
+> **Judul:** *"Yang Akan Kamu Temukan di Dalam Laporan BisnisLevelUp.id-mu"*
 >
 > - ✅ Di fase mana bisnismu SEKARANG (berdasarkan skor aktual)
 > - ✅ Krisis apa yang sedang menghadang (bahkan kalau kamu belum sadar)
@@ -387,7 +387,7 @@ Setiap butir yang dijawab "Tidak" (terutama butir ★) memicu **rekomendasi pers
 |---|---|
 | **BUKU** | Judul, penulis, deskripsi singkat, link beli |
 | **MENTOR** | Nama, spesialisasi, link profil/WA |
-| **KELAS_INTERNAL** | Link ke kelas di NaikFase (upsell) |
+| **KELAS_INTERNAL** | Link ke kelas di BisnisLevelUp.id (upsell) |
 | **EBOOK** | Judul, deskripsi, harga, link beli |
 | **COACHING_ONLINE** | Link jadwal 1:1 online |
 | **COACHING_OFFLINE** | Lokasi & jadwal coaching tatap muka |
@@ -410,7 +410,7 @@ Setiap butir yang dijawab "Tidak" (terutama butir ★) memicu **rekomendasi pers
 #### Isi Laporan:
 
 1. **Cover Page**
-   - Logo NaikFase
+   - Logo BisnisLevelUp.id
    - Nama customer & perusahaan
    - Tanggal audit
    - Badge fase & status
@@ -446,7 +446,7 @@ Setiap butir yang dijawab "Tidak" (terutama butir ★) memicu **rekomendasi pers
 
 8. **Footer**
    - Disclaimer (bukan nasihat hukum/pajak)
-   - Info kontak NaikFase
+   - Info kontak BisnisLevelUp.id
    - Tanggal laporan & nomor sesi
 
 #### Tech Stack PDF:

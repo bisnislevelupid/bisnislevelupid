@@ -23,36 +23,11 @@ JOIN phases fp ON fp.phase_number = v.from_n
 JOIN phases tp ON tp.phase_number = v.to_n
 ON CONFLICT (code) DO NOTHING;
 
-INSERT INTO test_sections (audit_transition_id, code, name, sort_order)
-SELECT a.id, s.code, s.name, s.sort_order
-FROM audit_transitions a
-JOIN (VALUES
-  ('A','Produksi / Operasi',1),
-  ('B','Sales & Marketing',2),
-  ('C','Keuangan',3),
-  ('D','SDM',4),
-  ('E','Kepemimpinan',5),
-  ('F','Pelanggan',6),
-  ('G','Legal & Administrasi',7),
-  ('H','Visi & Strategi',8)
-) AS s(code, name, sort_order) ON true
-WHERE a.code = 'audit_1_2'
-ON CONFLICT (audit_transition_id, code) DO NOTHING;
-
-INSERT INTO test_questions (audit_transition_id, section_id, question_number, question_text, is_key, sort_order)
-SELECT a.id, sec.id, q.num, q.text, q.is_key, q.num
-FROM audit_transitions a
-JOIN test_sections sec ON sec.audit_transition_id = a.id AND sec.code = 'C'
-JOIN (VALUES
-  (9, 'Apakah Anda sudah menghitung titik impas (BEP) bisnis ini?', true),
-  (11, 'Apakah kas usaha sudah dipisah dari kas pribadi?', true),
-  (12, 'Apakah Anda tahu laba bersih bulan lalu?', false)
-) AS q(num, text, is_key) ON true
-WHERE a.code = 'audit_1_2'
-AND NOT EXISTS (
-  SELECT 1 FROM test_questions tq
-  WHERE tq.audit_transition_id = a.id AND tq.question_number = q.num
-);
+-- Seksi dan butir soal tidak di-seed di sini (placeholder lama bentrok dengan bank soal).
+-- 36 seksi, 362 butir, dan 56 butir kunci ada di drizzle/seed_question_bank.sql.
+-- Butuh unique index dari drizzle/0002_test_questions_natural_key.sql lebih dulu.
+-- Angka total_key_questions di INSERT audit_transitions di atas (9/14/15/9) adalah
+-- hitungan ERD lama. seed_question_bank.sql menimpanya menjadi 13/18/16/9.
 
 INSERT INTO recommendation_library (type, title, author_or_name, description, is_active, sort_order)
 SELECT 'BUKU', 'The E-Myth Revisited', 'Michael E. Gerber', 'Bekerja pada bisnis, bukan hanya di dalam bisnis.', true, 1

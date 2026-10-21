@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "tsx scripts/db.ts drizzle/0000_init.sql",
-    "db:seed": "tsx scripts/db.ts drizzle/seed.sql"
+    "db:migrate:0002": "tsx scripts/db.ts drizzle/0002_test_questions_natural_key.sql",
+    "db:seed": "tsx scripts/db.ts drizzle/seed.sql",
+    "db:seed:questions": "tsx scripts/db.ts drizzle/seed_question_bank.sql"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

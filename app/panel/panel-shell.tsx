@@ -3,21 +3,94 @@
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { ExternalLink, HelpCircle, LayoutDashboard, Menu, Package, ShoppingCart, TrendingUp, Users, X } from "lucide-react";
-import { MENU_GROUPS } from "@/lib/admin/resources";
+import {
+  BadgePlus,
+  BarChart3,
+  Bell,
+  BookOpen,
+  CheckSquare,
+  ClipboardList,
+  CreditCard,
+  ExternalLink,
+  FolderTree,
+  GitBranch,
+  Handshake,
+  HelpCircle,
+  KeyRound,
+  Layers,
+  LayoutDashboard,
+  Library,
+  Lightbulb,
+  List,
+  Mail,
+  Menu,
+  Package,
+  PanelsTopLeft,
+  PieChart,
+  Quote,
+  Receipt,
+  ScrollText,
+  Settings,
+  Share2,
+  Shield,
+  ShoppingCart,
+  Tags,
+  Ticket,
+  TicketCheck,
+  Timer,
+  TrendingUp,
+  UserCog,
+  Users,
+  Wallet,
+  X,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
+import { PANEL_SECTIONS, sectionForPath } from "@/lib/admin/resources";
 
-const mainMenu = [
-  { label: "Ringkasan Dashboard", href: "/panel", icon: LayoutDashboard },
-  { label: "Pesanan & Invoice", href: "/panel/orders", icon: ShoppingCart },
-  { label: "Data Customer", href: "/panel/customers", icon: Users },
-  { label: "Bank Soal & Butir Kunci", href: "/panel/test_questions", icon: HelpCircle },
-  { label: "Katalog Produk & Upsell", href: "/panel/products", icon: Package },
-];
+const ICONS: Record<string, LucideIcon> = {
+  BadgePlus,
+  BarChart3,
+  Bell,
+  BookOpen,
+  CheckSquare,
+  ClipboardList,
+  CreditCard,
+  FolderTree,
+  GitBranch,
+  Handshake,
+  HelpCircle,
+  KeyRound,
+  Layers,
+  LayoutDashboard,
+  Library,
+  Lightbulb,
+  List,
+  Mail,
+  Package,
+  PanelsTopLeft,
+  PieChart,
+  Quote,
+  Receipt,
+  ScrollText,
+  Settings,
+  Share2,
+  Shield,
+  ShoppingCart,
+  Tags,
+  Ticket,
+  TicketCheck,
+  Timer,
+  UserCog,
+  Users,
+  Wallet,
+  Zap,
+};
 
-export function PanelShell({ children, pending }: { children: React.ReactNode; pending: number }) {
+export function PanelShell({ children, pending, adminName }: { children: React.ReactNode; pending: number; adminName: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [more, setMore] = useState(false);
+  const section = sectionForPath(pathname);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc", color: "#0f172a" }}>
@@ -53,11 +126,10 @@ export function PanelShell({ children, pending }: { children: React.ReactNode; p
             </button>
           </div>
           <div style={{ padding: "20px 14px" }}>
-            <div style={{ fontSize: "0.72rem", color: "#6ee7b7", fontWeight: 700, padding: "0 12px 10px" }}>MENU MANAJEMEN</div>
             <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {mainMenu.map((item) => {
-                const active = pathname === item.href;
-                const Icon = item.icon;
+              {PANEL_SECTIONS.map((item) => {
+                const Icon = ICONS[item.icon] ?? LayoutDashboard;
+                const active = item.href === "/panel" ? pathname === "/panel" : section?.href === item.href;
                 return (
                   <Link
                     key={item.href}
@@ -67,7 +139,8 @@ export function PanelShell({ children, pending }: { children: React.ReactNode; p
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      padding: "11px 14px",
+                      gap: 10,
+                      padding: "10px 12px",
                       borderRadius: 10,
                       background: active ? "rgba(16,185,129,.18)" : "transparent",
                       color: active ? "#34d399" : "#cbd5e1",
@@ -80,40 +153,29 @@ export function PanelShell({ children, pending }: { children: React.ReactNode; p
                       <Icon size={18} />
                       {item.label}
                     </span>
-                    {item.href === "/panel/orders" && pending > 0 ? (
-                      <span style={{ fontSize: "0.68rem", background: "#10b981", color: "#fff", borderRadius: 999, padding: "2px 6px" }}>{pending} Baru</span>
+                    {item.label === "Pembayaran" && pending > 0 ? (
+                      <span style={{ fontSize: "0.68rem", background: "#10b981", color: "#fff", borderRadius: 999, padding: "2px 6px" }}>{pending}</span>
                     ) : null}
                   </Link>
                 );
               })}
             </nav>
-            <button type="button" onClick={() => setMore((v) => !v)} style={{ marginTop: 16, background: "transparent", border: "none", color: "#6ee7b7", fontSize: "0.75rem", fontWeight: 700 }}>
-              {more ? "Sembunyikan tabel lain" : "Semua tabel CRUD"}
-            </button>
-            {more ? (
-              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-                {MENU_GROUPS.map((group) => (
-                  <div key={group.label}>
-                    <div style={{ fontSize: "0.68rem", color: "#94a3b8", padding: "4px 12px" }}>{group.label}</div>
-                    {group.tables.map((table) => (
-                      <Link key={table} href={`/panel/${table}`} style={{ display: "block", color: "#cbd5e1", fontSize: "0.8rem", padding: "4px 12px" }}>
-                        {table}
-                      </Link>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            ) : null}
           </div>
         </div>
         <div style={{ padding: 16, borderTop: "1px solid rgba(255,255,255,.08)", background: "rgba(0,0,0,.2)" }}>
           <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-            <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#059669", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>RZ</div>
+            <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#059669", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>{adminName.slice(0, 1).toUpperCase()}</div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: "0.86rem" }}>Riza Zacharias</div>
+              <div style={{ fontWeight: 700, fontSize: "0.86rem" }}>{adminName}</div>
               <div style={{ fontSize: "0.72rem", color: "#6ee7b7" }}>Super Admin</div>
             </div>
           </div>
+          <form action="/api/logout" method="post" style={{ marginBottom: 8 }}>
+            <input type="hidden" name="realm" value="superadmin" />
+            <button type="submit" style={{ width: "100%", background: "transparent", color: "#fecaca", border: "1px solid rgba(254,202,202,.35)", borderRadius: 8, padding: 7, fontSize: "0.75rem", cursor: "pointer" }}>
+              Keluar
+            </button>
+          </form>
           <Link href="/" style={{ display: "flex", justifyContent: "center", gap: 6, border: "1px solid rgba(255,255,255,.12)", borderRadius: 8, padding: 7, fontSize: "0.75rem", color: "#cbd5e1" }}>
             <ExternalLink size={13} /> Web Publik
           </Link>
@@ -140,7 +202,39 @@ export function PanelShell({ children, pending }: { children: React.ReactNode; p
             </Link>
           </div>
         </header>
-        <main style={{ padding: 32, flex: 1 }}>{children}</main>
+        <main style={{ padding: 32, flex: 1 }}>
+          {section && section.tabs.length > 1 ? (
+            <div style={{ display: "flex", gap: 8, overflowX: "auto", marginBottom: 20, paddingBottom: 4 }}>
+              {section.tabs.map((tab) => {
+                const Icon = ICONS[tab.icon] ?? LayoutDashboard;
+                const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+                return (
+                  <Link
+                    key={tab.href}
+                    href={tab.href}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      whiteSpace: "nowrap",
+                      borderRadius: 999,
+                      padding: "8px 14px",
+                      background: active ? "#059669" : "#fff",
+                      color: active ? "#fff" : "#334155",
+                      border: active ? "1px solid #059669" : "1px solid #e2e8f0",
+                      fontWeight: 700,
+                      fontSize: "0.84rem",
+                    }}
+                  >
+                    <Icon size={15} />
+                    {tab.label}
+                  </Link>
+                );
+              })}
+            </div>
+          ) : null}
+          {children}
+        </main>
       </div>
       <style>{`
         @media (max-width: 900px) {

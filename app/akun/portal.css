@@ -1,0 +1,124 @@
+.portal {
+  display: flex;
+  min-height: 100vh;
+  background: #f8fafc;
+  color: #0f172a;
+}
+.portal-sidebar {
+  width: 260px;
+  background: #fff;
+  border-right: 1px solid #e2e8f0;
+  position: fixed;
+  inset: 0 auto 0 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 40;
+}
+.portal-main {
+  margin-left: 260px;
+  flex: 1;
+  min-width: 0;
+}
+.portal-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 24px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.portal-content {
+  padding: 24px;
+  max-width: 1100px;
+}
+.portal-menu {
+  display: none;
+}
+.portal-overlay {
+  display: none;
+}
+.answer-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.invoice-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.nav-dots {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+@media (max-width: 900px) {
+  .portal-sidebar {
+    transform: translateX(-105%);
+    transition: transform 0.2s ease;
+  }
+  .portal-sidebar.open {
+    transform: translateX(0);
+  }
+  .portal-main {
+    margin-left: 0;
+  }
+  .portal-menu {
+    display: inline-flex;
+  }
+  .portal-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 30;
+  }
+  .portal-content {
+    padding: 16px;
+  }
+  .answer-row {
+    flex-direction: column;
+  }
+  .answer-row button {
+    width: 100%;
+  }
+  .invoice-table {
+    display: block;
+  }
+  .invoice-table thead {
+    display: none;
+  }
+  .invoice-table tr {
+    display: block;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: #fff;
+  }
+  .invoice-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border: 0;
+  }
+  .invoice-table td::before {
+    content: attr(data-label);
+    color: #64748b;
+    font-weight: 700;
+  }
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+}

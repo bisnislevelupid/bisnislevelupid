@@ -29,7 +29,7 @@ export default async function CheckoutPage({
             Isi data perusahaan Anda untuk penerbitan lisensi instrumen audit dan invoice resmi.
           </p>
           {selected ? (
-            <CheckoutForm products={products} methods={methods} initialCode={selected} />
+            <CheckoutForm products={products} methods={methods} initialCode={selected} restoreProduct={!product} />
           ) : (
             <p>Paket belum tersedia.</p>
           )}

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { withPool } from "@/lib/db";
+import { superadminFromRequest } from "@/lib/auth/session";
 
 export async function POST(req: NextRequest) {
+  const session = await superadminFromRequest(req);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const form = await req.formData();
   const file = form.get("file");
   const key = String(form.get("key") ?? "");

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 function baseUrl() {
   const prod = process.env.MIDTRANS_IS_PRODUCTION === "true";
@@ -53,9 +53,13 @@ export function verifyMidtransSignature(input: {
   grossAmount: string;
   signatureKey: string;
 }) {
-  const key = process.env.MIDTRANS_SERVER_KEY ?? "";
+  const key = process.env.MIDTRANS_SERVER_KEY;
+  if (!key) return false;
   const expected = createHash("sha512")
     .update(input.orderId + input.statusCode + input.grossAmount + key)
     .digest("hex");
-  return expected === input.signatureKey;
+  const left = Buffer.from(expected);
+  const right = Buffer.from(input.signatureKey);
+  if (left.length !== right.length) return false;
+  return timingSafeEqual(left, right);
 }

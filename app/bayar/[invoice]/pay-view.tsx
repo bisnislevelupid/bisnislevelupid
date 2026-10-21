@@ -20,7 +20,7 @@ type Order = {
   logo_url: string | null;
   account_number: string | null;
   account_holder: string | null;
-  customer_name: string | null;
+  customer_name?: string | null;
   expired_at: string | null;
   instructions: Array<{ title: string; content: string }>;
 };

@@ -1,11 +1,10 @@
+import { randomBytes } from "node:crypto";
 import { withPool } from "@/lib/db";
 import { createXenditPayment } from "@/lib/payment/xendit";
 import { createGopaySnap } from "@/lib/payment/midtrans";
 
 function invoiceCode() {
-  const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `INV-${day}-${rand}`;
+  return `INV-${randomBytes(9).toString("base64url")}`;
 }
 
 async function uniqueManualAmount(
@@ -258,7 +257,7 @@ export async function getOrderPublic(invoice: string) {
     const { rows } = await pool.query(
       `SELECT o.invoice_code, o.status, o.total_amount::text, o.unique_amount::text, o.subtotal::text,
               o.discount_amount::text, o.va_number, o.qr_string, o.payment_code, o.payment_url,
-              o.snap_token, o.customer_name, o.expired_at, o.paid_at,
+              o.snap_token, o.expired_at, o.paid_at,
               m.code AS method_code, m.name AS method_name, m.type AS method_type, m.provider,
               m.logo_url, m.account_number, m.account_holder, m.is_redirect
        FROM orders o

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 type Column = { name: string; type: string; nullable: boolean; readonly: boolean };
 type Payload = {
@@ -20,7 +21,11 @@ export function ResourceTable({ resource }: { resource: string }) {
   async function load(nextPage = page, query = q) {
     const res = await fetch(`/api/panel/${resource}?page=${nextPage}&limit=10&q=${encodeURIComponent(query)}`);
     const json = await res.json();
-    if (!res.ok) setError(json.error ?? "Gagal memuat");
+    if (!res.ok) {
+      const message = json.error ?? "Gagal memuat";
+      setError(message);
+      toast.error(message);
+    }
     else setPayload(json);
   }
 
@@ -29,10 +34,23 @@ export function ResourceTable({ resource }: { resource: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resource]);
 
-  async function remove(id: string) {
-    if (!confirm("Hapus baris ini?")) return;
-    await fetch(`/api/panel/${resource}/${encodeURIComponent(id)}`, { method: "DELETE" });
-    await load();
+  function remove(id: string) {
+    toast("Hapus baris ini?", {
+      action: {
+        label: "Hapus",
+        onClick: () =>
+          void (async () => {
+            const res = await fetch(`/api/panel/${resource}/${encodeURIComponent(id)}`, { method: "DELETE" });
+            if (!res.ok) {
+              toast.error("Gagal menghapus");
+              return;
+            }
+            toast.success("Baris dihapus");
+            await load();
+          })(),
+      },
+      cancel: { label: "Batal", onClick: () => undefined },
+    });
   }
 
   async function uploadAsset(file: File, key: string) {

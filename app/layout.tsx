@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Albert_Sans, Cabin } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner";
 import { getSiteSettings } from "@/lib/db/public";
 
 const heading = Albert_Sans({ subsets: ["latin"], variable: "--font-heading" });
@@ -32,7 +33,10 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id" className={`${heading.variable} ${body.variable} h-full`}>
-      <body className="min-h-full bg-white text-slate-900 antialiased">{children}</body>
+      <body className="min-h-full bg-white text-slate-900 antialiased">
+        {children}
+        <Toaster position="top-right" richColors closeButton />
+      </body>
     </html>
   );
 }

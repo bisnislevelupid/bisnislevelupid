@@ -167,21 +167,13 @@ src/db/schema/
 ### 5.4 Scoring Engine
 
 ```typescript
-// lib/scoring.ts — logika wajib diimplementasi di sini, bukan di route
-function calculateResult(answers: TestAnswer[], questions: TestQuestion[]) {
-  const keyQuestions = questions.filter(q => q.is_key);
-  const keyFailures  = keyQuestions.filter(q => answers.find(a => a.question_id === q.id)?.answer === false);
-
-  if (keyFailures.length > 0) {
-    return { passed: false, reason: 'KEY_ITEM_FAILED', failedKeys: keyFailures };
-  }
-
-  const nonKeyQuestions = questions.filter(q => !q.is_key);
-  const nonKeyYes = nonKeyQuestions.filter(q => answers.find(a => a.question_id === q.id)?.answer === true);
-  const score = nonKeyYes.length / nonKeyQuestions.length;
-
-  return { passed: score >= 0.80, score, reason: score >= 0.80 ? 'PASSED' : 'BELOW_THRESHOLD' };
-}
+// lib/scoring.ts — jawaban 'YA' | 'TIDAK' | 'TIDAK_BERLAKU'
+// Skor = biasaYa / (non-kunci yang dinilai). N/A keluar dari pembilang dan penyebut.
+// Ambang tanpa pembulatan: ya * 100 >= passingScore * penyebut. passingScore default 80.
+// Urutan: DALAM_BAHAYA (kunci tidak >= 3 dan skor < 50)
+//   → BELUM_SIAP (ada kunci Tidak) → SIAP_NAIK (>= 80) → HAMPIR (60–79) → PERLU_FONDASI (< 60)
+// Kunci yang dijawab TIDAK_BERLAKU tidak menggagalkan. Penyebut 0 → TIDAK_DAPAT_DINILAI.
+calculateResult({ auditCode, questions, answers, passingScore })
 ```
 
 ---

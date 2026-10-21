@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 type Product = {
@@ -37,10 +37,12 @@ export function CheckoutForm({
   products,
   methods,
   initialCode,
+  restoreProduct = false,
 }: {
   products: Product[];
   methods: Method[];
   initialCode: string;
+  restoreProduct?: boolean;
 }) {
   const router = useRouter();
   const [productCode, setProductCode] = useState(initialCode);
@@ -64,15 +66,45 @@ export function CheckoutForm({
   const [couponNote, setCouponNote] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftJson = useRef<string | null>(null);
+
+  function flushDraft() {
+    if (draftTimer.current) {
+      clearTimeout(draftTimer.current);
+      draftTimer.current = null;
+    }
+    if (draftJson.current) localStorage.setItem(DRAFT_KEY, draftJson.current);
+  }
+
+  function clearDraft() {
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    draftTimer.current = null;
+    draftJson.current = null;
+    localStorage.removeItem(DRAFT_KEY);
+  }
 
   function writeDraft(next: {
     fields: typeof fields;
     methodId: string;
     coupon: string;
     productCode: string;
+    agreed: boolean;
   }) {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(next));
+    draftJson.current = JSON.stringify(next);
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(flushDraft, 250);
   }
+
+  useEffect(() => {
+    const onHide = () => flushDraft();
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      flushDraft();
+    };
+  }, []);
 
   useEffect(() => {
     const raw = localStorage.getItem(DRAFT_KEY);
@@ -83,6 +115,7 @@ export function CheckoutForm({
         methodId?: string;
         coupon?: string;
         productCode?: string;
+        agreed?: boolean;
       };
       const saved = { ...parsed, ...parsed.fields };
       setFields((prev) => ({
@@ -102,8 +135,12 @@ export function CheckoutForm({
         setMethodId(String(saved.methodId));
       }
       if (saved.coupon) setCoupon(saved.coupon);
+      if (restoreProduct && saved.productCode && products.some((item) => item.code === saved.productCode)) {
+        setProductCode(saved.productCode);
+      }
+      if (saved.agreed) setAgreed(true);
     } catch {
-      localStorage.removeItem(DRAFT_KEY);
+      clearDraft();
     }
     // Muat sekali. Jangan tulis ulang di sini, supaya draft tidak tertimpa nilai kosong.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,14 +153,14 @@ export function CheckoutForm({
   function setField(name: keyof typeof fields, value: string) {
     setFields((prev) => {
       const next = { ...prev, [name]: value };
-      writeDraft({ fields: next, methodId, coupon, productCode });
+      writeDraft({ fields: next, methodId, coupon, productCode, agreed });
       return next;
     });
   }
 
   function chooseMethod(id: string) {
     setMethodId(id);
-    writeDraft({ fields, methodId: id, coupon, productCode });
+    writeDraft({ fields, methodId: id, coupon, productCode, agreed });
   }
 
   function chooseProduct(code: string) {
@@ -131,7 +168,7 @@ export function CheckoutForm({
     setApplied("");
     setDiscount(0);
     setCouponNote("");
-    writeDraft({ fields, methodId, coupon, productCode: code });
+    writeDraft({ fields, methodId, coupon, productCode: code, agreed });
     window.history.replaceState(null, "", `/checkout?product=${code}`);
   }
 
@@ -178,24 +215,13 @@ export function CheckoutForm({
     setCouponNote(`Diskon ${rupiah(json.data.discount)} diterapkan`);
   }
 
-  const orderedMethods = useMemo(() => {
-    const rank = (method: Method) => {
-      if (method.type === "qr_code") return 0;
-      if (method.type === "va") return 1;
-      if (method.provider === "Midtrans") return 2;
-      if (method.type === "E-Wallet") return 3;
-      if (method.type === "retail_outlet") return 4;
-      return 5;
-    };
-    return [...methods].sort((a, b) => rank(a) - rank(b));
-  }, [methods]);
-
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
     setError("");
-    if (!validateFields()) {
+    if (!validateFields() || !agreed) {
       setPending(false);
+      if (!agreed) setError("Centang persetujuan ketentuan layanan.");
       return;
     }
     const res = await fetch("/api/checkout", {
@@ -215,7 +241,7 @@ export function CheckoutForm({
         ownerRole: fields.ownerRole,
         paymentMethodId: methodId,
         coupon: applied || undefined,
-        agree: true,
+        agree: agreed,
       }),
     });
     const json = await res.json();
@@ -224,7 +250,7 @@ export function CheckoutForm({
       setError(json.error ?? "Checkout gagal");
       return;
     }
-    localStorage.removeItem(DRAFT_KEY);
+    clearDraft();
     if (json.data.redirect) {
       window.location.href = json.data.redirect;
       return;
@@ -281,7 +307,7 @@ export function CheckoutForm({
               <span style={badge}>2</span> Pilih Metode Pembayaran
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {orderedMethods.map((method) => {
+              {methods.map((method) => {
                 const active = String(method.id) === String(methodId);
                 return (
                   <label
@@ -374,7 +400,7 @@ export function CheckoutForm({
                   onChange={(e) => {
                     const next = e.target.value.toUpperCase();
                     setCoupon(next);
-                    writeDraft({ fields, methodId, coupon: next, productCode });
+                    writeDraft({ fields, methodId, coupon: next, productCode, agreed });
                   }}
                   placeholder="LEVELUP10"
                   style={{ ...input, flex: 1 }}
@@ -399,7 +425,17 @@ export function CheckoutForm({
               <strong style={{ color: "#059669" }}>{rupiah(total)}</strong>
             </div>
             <label style={{ display: "flex", gap: 8, marginTop: 16, fontSize: "0.82rem", color: "#475569" }}>
-              <input type="checkbox" name="agree" required defaultChecked />
+              <input
+                type="checkbox"
+                name="agree"
+                required
+                checked={agreed}
+                onChange={(event) => {
+                  const next = event.target.checked;
+                  setAgreed(next);
+                  writeDraft({ fields, methodId, coupon, productCode, agreed: next });
+                }}
+              />
               Saya menyetujui ketentuan layanan. Hasil audit akan dikirim ke email terdaftar.
             </label>
             {error ? <p style={{ color: "#dc2626", marginTop: 10, fontSize: "0.88rem" }}>{error}</p> : null}

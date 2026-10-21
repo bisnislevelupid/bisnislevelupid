@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { isAdminTable } from "@/lib/admin/resources";
 import { ResourceForm } from "../resource-form";
 
@@ -9,6 +9,15 @@ export default async function ResourceEditPage({
   params: Promise<{ resource: string; id: string }>;
 }) {
   const { resource, id } = await params;
+  const dedicated: Record<string, string> = {
+    admins: "/panel/pengguna",
+    payment_methods: "/panel/metode-bayar",
+    payment_instructions: "/panel/metode-bayar",
+    payment_logs: "/panel/log-pembayaran",
+    notification_templates: "/panel/template-notifikasi",
+    notification_logs: "/panel/log-notifikasi",
+  };
+  if (dedicated[resource]) redirect(id === "baru" ? `${dedicated[resource]}/baru` : `${dedicated[resource]}/${id}`);
   if (!isAdminTable(resource)) notFound();
   const creating = id === "baru";
   return (

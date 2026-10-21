@@ -25,8 +25,8 @@ export default function HomePage() {
               <a href="#features-section">Fitur</a>
               <a href="#pricing-section">Harga</a>
               <a href="#faq-section">FAQ</a>
-              <Link href="/panel" style={{ color: "#059669", fontWeight: 600 }}>
-                Panel Admin
+              <Link href="/masuk" style={{ color: "#059669", fontWeight: 600 }}>
+                Masuk
               </Link>
             </div>
           </div>

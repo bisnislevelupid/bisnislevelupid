@@ -1,7 +1,18 @@
+import { randomBytes } from "node:crypto";
 import { withPool } from "@/lib/db";
 import { isAdminTable } from "@/lib/admin/resources";
 
 const READONLY = new Set(["id", "created_at", "updated_at", "paid_at", "sent_at"]);
+const HIDDEN = new Set(["password_hash"]);
+const ADMIN_ROLES = new Set(["SUPERADMIN", "ADMIN", "FINANCE", "CONTENT", "SUPPORT"]);
+const ADMIN_STATUS = new Set(["ACTIVE", "INACTIVE"]);
+
+function hideSecrets(row: Record<string, unknown> | null) {
+  if (!row) return row;
+  const copy = { ...row };
+  delete copy.password_hash;
+  return copy;
+}
 
 export async function listResource(table: string, page: number, limit: number, q?: string) {
   if (!isAdminTable(table)) throw new Error("unknown table");
@@ -34,14 +45,16 @@ export async function listResource(table: string, page: number, limit: number, q
       params,
     );
     return {
-      columns: cols.rows.map((c) => ({
-        name: c.column_name as string,
-        type: c.data_type as string,
-        nullable: c.is_nullable === "YES",
-        readonly: READONLY.has(c.column_name),
-      })),
+      columns: cols.rows
+        .filter((c) => !HIDDEN.has(c.column_name))
+        .map((c) => ({
+          name: c.column_name as string,
+          type: c.data_type as string,
+          nullable: c.is_nullable === "YES",
+          readonly: READONLY.has(c.column_name),
+        })),
       pk,
-      data: data.rows,
+      data: data.rows.map((row) => hideSecrets(row as Record<string, unknown>)),
       meta: {
         total: total.rows[0].n as number,
         page,
@@ -66,14 +79,16 @@ export async function getResource(table: string, id: string) {
     const pk = names.includes("id") ? "id" : names[0];
     const row = await pool.query(`SELECT * FROM ${table} WHERE ${pk}::text = $1`, [id]);
     return {
-      columns: cols.rows.map((c) => ({
-        name: c.column_name as string,
-        type: c.data_type as string,
-        nullable: c.is_nullable === "YES",
-        readonly: READONLY.has(c.column_name),
-      })),
+      columns: cols.rows
+        .filter((c) => !HIDDEN.has(c.column_name))
+        .map((c) => ({
+          name: c.column_name as string,
+          type: c.data_type as string,
+          nullable: c.is_nullable === "YES",
+          readonly: READONLY.has(c.column_name),
+        })),
       pk,
-      row: (row.rows[0] as Record<string, unknown> | undefined) ?? null,
+      row: hideSecrets((row.rows[0] as Record<string, unknown> | undefined) ?? null),
     };
   });
 }
@@ -91,7 +106,7 @@ export async function getCustomerProfile(id: string) {
       [id],
     );
     return {
-      customer: (customer.rows[0] as Record<string, unknown> | undefined) ?? null,
+      customer: hideSecrets((customer.rows[0] as Record<string, unknown> | undefined) ?? null),
       orders: orders.rows as Record<string, unknown>[],
     };
   });
@@ -116,11 +131,21 @@ export async function mutateResource(
       await pool.query(`DELETE FROM ${table} WHERE ${pk} = $1`, [id]);
       return { ok: true };
     }
+    const payload = { ...body };
+    delete payload.password_hash;
+    if (table === "admins") {
+      if (payload.role !== undefined && !ADMIN_ROLES.has(String(payload.role))) throw new Error("Role tidak dikenal");
+      if (payload.status !== undefined && !ADMIN_STATUS.has(String(payload.status))) throw new Error("Status tidak dikenal");
+      if (action === "insert" && !names.includes("password_hash")) {
+        throw new Error("Kolom kata sandi tidak ada");
+      }
+      if (action === "insert") payload.password_hash = `google-sso:${randomBytes(24).toString("hex")}`;
+    }
     const writable = names.filter((n) => !READONLY.has(n) && n !== "id");
-    const entries = writable.filter((n) => body[n] !== undefined);
+    const entries = writable.filter((n) => payload[n] !== undefined);
     if (!entries.length) throw new Error("Tidak ada kolom untuk disimpan");
     const values = entries.map((n) => {
-      const value = body[n];
+      const value = payload[n];
       if (value === "" || value === null) return null;
       return value;
     });
@@ -130,7 +155,7 @@ export async function mutateResource(
         `INSERT INTO ${table} (${entries.join(",")}) VALUES (${placeholders}) RETURNING *`,
         values,
       );
-      return inserted.rows[0];
+      return hideSecrets(inserted.rows[0] as Record<string, unknown>);
     }
     const sets = entries.map((n, i) => `${n}=$${i + 1}`).join(",");
     values.push(id);
@@ -138,7 +163,7 @@ export async function mutateResource(
       `UPDATE ${table} SET ${sets} WHERE ${pk}=$${values.length} RETURNING *`,
       values,
     );
-    return updated.rows[0];
+    return hideSecrets(updated.rows[0] as Record<string, unknown>);
   });
 }
 

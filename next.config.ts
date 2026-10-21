@@ -1,7 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async headers() {
+    const noStore = [{ key: "Cache-Control", value: "private, no-store" }];
+    return [
+      { source: "/panel", headers: noStore },
+      { source: "/panel/:path*", headers: noStore },
+      { source: "/api/panel/:path*", headers: noStore },
+    ];
+  },
   experimental: {
     agentFeedback: true,
   },

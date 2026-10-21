@@ -127,7 +127,7 @@ export function Navbar() {
         <div style={{ display: 'none', alignItems: 'center', gap: '14px' }} className="desktop-actions">
           {false ? (
             <button
-              onClick={() => go('/panel')}
+              onClick={() => go('/masuk')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -147,7 +147,7 @@ export function Navbar() {
             </button>
           ) : (
             <a
-              href="/panel"
+              href="/masuk"
               style={{
                 background: 'transparent',
                 border: 'none',
@@ -229,11 +229,11 @@ export function Navbar() {
           <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0' }} />
 
           <a
-            href="/panel"
+            href="/masuk"
             className="btn btn-outline"
             style={{ width: '100%', borderRadius: '999px' }}
           >
-            Masuk Member / Admin
+            Masuk
           </a>
 
           <a

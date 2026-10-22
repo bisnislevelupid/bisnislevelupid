@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { withPool } from "@/lib/db";
+import { fillPlaceholders, rupiah, sanitizeEmailHtml } from "@/lib/email/html";
 import { createXenditPayment } from "@/lib/payment/xendit";
 import { createGopaySnap } from "@/lib/payment/midtrans";
 
@@ -242,7 +243,7 @@ export async function placeOrder(input: {
       }
 
       await client.query("COMMIT");
-      return { invoice, redirect };
+      return { invoice, redirect, methodType: String(pm.type) };
     } catch (err) {
       await client.query("ROLLBACK");
       throw err;
@@ -266,13 +267,28 @@ export async function getOrderPublic(invoice: string) {
       [invoice],
     );
     if (!rows[0]) return null;
+    const order = rows[0];
     const instructions = await pool.query(
       `SELECT title, content FROM payment_instructions WHERE payment_method_id = (
          SELECT payment_method_id FROM orders WHERE invoice_code = $1
        ) ORDER BY sort_order`,
       [invoice],
     );
-    return { ...rows[0], instructions: instructions.rows };
+    const values = {
+      va: String(order.va_number ?? "nomor VA di halaman ini"),
+      kode: String(order.payment_code ?? "kode bayar di halaman ini"),
+      rekening: String(order.account_number ?? "-"),
+      atas_nama: String(order.account_holder ?? "BisnisLevelUp.id"),
+      nominal: rupiah(String(order.total_amount ?? "0")),
+      metode: String(order.method_name ?? ""),
+    };
+    return {
+      ...order,
+      instructions: instructions.rows.map((item) => ({
+        title: item.title,
+        content: sanitizeEmailHtml(fillPlaceholders(String(item.content), values)),
+      })),
+    };
   });
 }
 
@@ -290,33 +306,6 @@ export async function markPaid(invoice: string, source: string, payload: unknown
        VALUES ($1,$2,$3,'WEBHOOK',$4,'{"ok":true}',200)`,
       [invoice, order.id, source, JSON.stringify(payload)],
     );
-    const templates = await pool.query(
-      `SELECT id, channel, message_content, subject FROM notification_templates
-       WHERE event_trigger='ORDER_PAID' AND is_active=true`,
-    );
-    const nominal = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(
-      Number(order.total_amount),
-    );
-    for (const tpl of templates.rows) {
-      const message = String(tpl.message_content)
-        .replaceAll("{nama}", order.customer_name ?? "")
-        .replaceAll("{invoice}", invoice)
-        .replaceAll("{nominal}", nominal);
-      const recipient = tpl.channel === "EMAIL" ? order.customer_email : order.customer_phone;
-      await pool.query(
-        `INSERT INTO notification_logs (template_id, invoice_code, order_id, recipient, channel, request_payload, response_payload, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,'SKIPPED')`,
-        [
-          tpl.id,
-          invoice,
-          order.id,
-          recipient ?? "-",
-          tpl.channel,
-          message,
-          "Kanal pengiriman belum dikonfigurasi",
-        ],
-      );
-    }
     return order;
   });
 }

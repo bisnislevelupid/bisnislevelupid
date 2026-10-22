@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { withPool } from "@/lib/db";
 import { isAdminTable } from "@/lib/admin/resources";
+import { notifyOrderPaid, siteOrigin } from "@/lib/email/notify";
 
 const READONLY = new Set(["id", "created_at", "updated_at", "paid_at", "sent_at"]);
 const HIDDEN = new Set(["password_hash"]);
@@ -119,7 +120,8 @@ export async function mutateResource(
   id?: string,
 ) {
   if (!isAdminTable(table)) throw new Error("unknown table");
-  return withPool(async (pool) => {
+  let invoiceJustPaid: string | null = null;
+  const saved = await withPool(async (pool) => {
     const cols = await pool.query(
       `SELECT column_name, data_type FROM information_schema.columns
        WHERE table_schema='public' AND table_name=$1 ORDER BY ordinal_position`,
@@ -157,14 +159,32 @@ export async function mutateResource(
       );
       return hideSecrets(inserted.rows[0] as Record<string, unknown>);
     }
+    if (table === "orders" && String(payload.status ?? "") === "PAID" && id) {
+      const prev = await pool.query(`SELECT status, invoice_code FROM orders WHERE id::text = $1`, [id]);
+      if (prev.rows[0] && prev.rows[0].status !== "PAID") invoiceJustPaid = String(prev.rows[0].invoice_code);
+    }
     const sets = entries.map((n, i) => `${n}=$${i + 1}`).join(",");
     values.push(id);
     const updated = await pool.query(
       `UPDATE ${table} SET ${sets} WHERE ${pk}=$${values.length} RETURNING *`,
       values,
     );
+    if (invoiceJustPaid) {
+      await pool.query(
+        `UPDATE orders SET paid_at = COALESCE(paid_at, NOW()), updated_at = NOW() WHERE invoice_code = $1`,
+        [invoiceJustPaid],
+      );
+    }
     return hideSecrets(updated.rows[0] as Record<string, unknown>);
   });
+  if (invoiceJustPaid) {
+    try {
+      await notifyOrderPaid(invoiceJustPaid, siteOrigin());
+    } catch (error) {
+      console.error("[admin paid email]", error);
+    }
+  }
+  return saved;
 }
 
 export async function dashboardStats() {

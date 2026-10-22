@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyXenditToken } from "@/lib/payment/xendit";
 import { markPaid } from "@/lib/checkout";
+import { notifyOrderPaid } from "@/lib/email/notify";
 
 export async function POST(req: NextRequest) {
   const token = req.headers.get("x-callback-token");
@@ -13,6 +14,15 @@ export async function POST(req: NextRequest) {
   const status = String(data.status ?? payload.status ?? "");
   const invoice = String(data.reference_id ?? payload.external_id ?? data.referenceId ?? "");
   const success = event.includes("succeeded") || status === "SUCCEEDED" || status === "PAID" || status === "COMPLETED";
-  if (success && invoice) await markPaid(invoice, "/api/webhooks/xendit", payload);
+  if (success && invoice) {
+    const paid = await markPaid(invoice, "/api/webhooks/xendit", payload);
+    if (paid) {
+      try {
+        await notifyOrderPaid(invoice, req.nextUrl.origin);
+      } catch (error) {
+        console.error("[paid email]", error);
+      }
+    }
+  }
   return NextResponse.json({ received: true });
 }

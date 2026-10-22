@@ -248,7 +248,10 @@ export function PayView({
                 {order.instructions.map((item) => (
                   <article key={item.title} style={{ marginBottom: 12 }}>
                     <h3 style={{ fontSize: "0.9rem", fontWeight: 700 }}>{item.title}</h3>
-                    <p style={{ fontSize: "0.85rem", color: "#475569", whiteSpace: "pre-wrap", marginTop: 4 }}>{item.content}</p>
+                    <div
+                      style={{ fontSize: "0.85rem", color: "#475569", marginTop: 4 }}
+                      dangerouslySetInnerHTML={{ __html: item.content }}
+                    />
                   </article>
                 ))}
               </div>

@@ -71,29 +71,73 @@ INSERT INTO payment_methods (code, name, logo_url, type, provider, is_active, is
 ('MANDIRI_MANUAL', 'Mandiri (Transfer Manual)', 'https://upload.wikimedia.org/wikipedia/commons/a/ad/Bank_Mandiri_logo_2016.svg', 'bank_transfer', 'Manual', true, false, 19, '9876543210', 'PT Bisnis Level Up')
 ON CONFLICT (code) DO NOTHING;
 
+DELETE FROM payment_instructions
+WHERE payment_method_id IN (
+  SELECT id FROM payment_methods WHERE code IN (
+    'QR_CODE','GOPAY','SHOPEEPAY','DANA','LINKAJA','BCA','MANDIRI','BSI','BRI','BNI','BJB','BNC','CIMB','MUAMALAT','PERMATA','ALFAMART','INDOMARET','BCA_MANUAL','MANDIRI_MANUAL'
+  )
+);
+
 INSERT INTO payment_instructions (payment_method_id, title, content, sort_order)
 SELECT m.id, i.title, i.content, i.sort_order
 FROM payment_methods m
 JOIN (VALUES
-  ('QR_CODE', 'Bayar dengan QRIS', 'Scan kode QR di halaman ini memakai aplikasi e-wallet atau mobile banking.', 1),
-  ('BCA_MANUAL', 'Transfer ke rekening BCA', 'Transfer tepat sesuai nominal unik ke rekening yang tercantum. Tiga digit terakhir membedakan pembayaran Anda.', 1),
-  ('MANDIRI_MANUAL', 'Transfer ke rekening Mandiri', 'Transfer tepat sesuai nominal unik ke rekening yang tercantum. Tiga digit terakhir membedakan pembayaran Anda.', 1),
-  ('BCA', 'Bayar Virtual Account BCA', 'Salin nomor VA dan nominal, lalu bayar lewat m-BCA, KlikBCA, atau ATM.', 1),
-  ('ALFAMART', 'Bayar di Alfamart', 'Tunjukkan kode pembayaran ke kasir sebelum kode kedaluwarsa.', 1),
-  ('INDOMARET', 'Bayar di Indomaret', 'Tunjukkan kode pembayaran ke kasir sebelum kode kedaluwarsa.', 1)
-) AS i(code, title, content, sort_order) ON m.code = i.code
-WHERE NOT EXISTS (
-  SELECT 1 FROM payment_instructions pi WHERE pi.payment_method_id = m.id AND pi.title = i.title
-);
+  ('BCA', 'Pembayaran via m-BCA', '<ol><li>Buka aplikasi BCA Mobile.</li><li>Pilih m-BCA, lalu m-Transfer.</li><li>Pilih BCA Virtual Account dan masukkan nomor {va}.</li><li>Periksa nama penerima dan nominal {nominal}.</li><li>Masukkan PIN m-BCA untuk mengirim.</li></ol>', 1),
+  ('BCA', 'Pembayaran via KlikBCA', '<ol><li>Login ke KlikBCA Individual.</li><li>Pilih Transfer, lalu Transfer ke BCA Virtual Account.</li><li>Masukkan nomor {va}.</li><li>Pastikan nominal {nominal} sudah benar, lalu lanjutkan.</li><li>Masukkan respon KeyBCA dan kode token.</li></ol>', 2),
+  ('BCA', 'Pembayaran via ATM BCA', '<ol><li>Masukkan kartu ATM BCA dan PIN.</li><li>Pilih Transaksi Lainnya, Transfer, lalu Ke Rekening BCA Virtual Account.</li><li>Masukkan nomor {va}.</li><li>Layar menampilkan nominal {nominal}. Konfirmasi jika nama penerima sudah benar.</li></ol>', 3),
+  ('MANDIRI', 'Pembayaran via Livin'' by Mandiri', '<ol><li>Login ke Livin'' by Mandiri.</li><li>Pilih Transfer Rupiah ke penerima baru.</li><li>Masukkan nomor virtual account {va}.</li><li>Konfirmasi nominal {nominal}, lalu lanjutkan.</li><li>Masukkan MPIN.</li></ol>', 1),
+  ('MANDIRI', 'Pembayaran via ATM Mandiri', '<ol><li>Masukkan kartu ATM, pilih bahasa, lalu masukkan PIN.</li><li>Pilih Bayar, lalu Multi Payment.</li><li>Masukkan kode perusahaan 88608 (Xendit), lalu nomor {va}.</li><li>Masukkan atau konfirmasi nominal {nominal}.</li><li>Konfirmasi detail pembayaran.</li></ol>', 2),
+  ('BRI', 'Pembayaran via BRImo', '<ol><li>Login ke BRImo.</li><li>Pilih Pembayaran, lalu BRIVA.</li><li>Masukkan nomor {va}.</li><li>Masukkan nominal {nominal} dan PIN, lalu kirim.</li></ol>', 1),
+  ('BRI', 'Pembayaran via ATM BRI', '<ol><li>Masukkan kartu ATM, pilih bahasa, lalu masukkan PIN.</li><li>Pilih Lainnya, Pembayaran, Pembayaran Lainnya, lalu BRIVA.</li><li>Masukkan nomor {va} dan nominal {nominal}.</li><li>Konfirmasi detail pembayaran.</li></ol>', 2),
+  ('BNI', 'Pembayaran via BNI Mobile', '<ol><li>Login ke BNI Mobile Banking.</li><li>Pilih Transfer, Virtual Account Billing, lalu rekening pendebetan.</li><li>Masukkan nomor {va}. Nominal {nominal} muncul di layar.</li><li>Konfirmasi dan masukkan password transaksi.</li></ol>', 1),
+  ('BNI', 'Pembayaran via BNI Internet Banking', '<ol><li>Login ke ibank.bni.co.id.</li><li>Pilih Transfer, lalu Virtual Account Billing.</li><li>Masukkan nomor {va} dan pilih rekening.</li><li>Periksa nominal {nominal}, lalu masukkan token.</li></ol>', 2),
+  ('BNI', 'Pembayaran via ATM BNI', '<ol><li>Masukkan kartu ATM, pilih bahasa, lalu masukkan PIN.</li><li>Pilih Menu Lain, Transfer, lalu pilih jenis rekening.</li><li>Masukkan nomor {va}. Nominal {nominal} tampil di layar.</li><li>Konfirmasi pembayaran.</li></ol>', 3),
+  ('BJB', 'Pembayaran via BJB Mobile', '<ol><li>Buka BJB Digi dan masuk.</li><li>Pilih Virtual Account.</li><li>Pilih rekening sumber, lalu masukkan nomor {va}.</li><li>Konfirmasi nominal {nominal}.</li></ol>', 1),
+  ('BJB', 'Pembayaran via BJB Net', '<ol><li>Buka ib.bankbjb.co.id dan masuk.</li><li>Pilih Virtual Account dan rekening sumber.</li><li>Masukkan nomor {va}.</li><li>Konfirmasi nominal {nominal}.</li></ol>', 2),
+  ('BJB', 'Pembayaran via ATM BJB', '<ol><li>Masukkan kartu ATM BJB dan PIN.</li><li>Pilih Transaksi Lainnya, lalu Virtual Account.</li><li>Pilih rekening sumber dan masukkan nomor {va}.</li><li>Periksa nominal {nominal}, lalu konfirmasi.</li></ol>', 3),
+  ('BNC', 'Pembayaran via neobank BNC', '<ol><li>Login ke aplikasi BNC atau neobank.</li><li>Pilih Hematpay VA.</li><li>Masukkan nomor {va} dan nominal {nominal}.</li><li>Konfirmasi lalu masukkan PIN.</li></ol>', 1),
+  ('BNC', 'Pembayaran via ATM', '<ol><li>Masukkan kartu ATM dan PIN.</li><li>Pilih pembayaran virtual account.</li><li>Masukkan nomor {va} dan nominal {nominal}.</li><li>Konfirmasi lalu masukkan PIN.</li></ol>', 2),
+  ('BSI', 'Pembayaran via BYOND BSI', '<ol><li>Login ke BYOND by BSI.</li><li>Pilih Bayar dan Beli, cari Xendit.</li><li>Pilih prefix 9347 atau 9655 sesuai nomor {va}.</li><li>Masukkan sisa nomor tanpa prefix, lalu PIN.</li><li>Konfirmasi nominal {nominal}.</li></ol>', 1),
+  ('BSI', 'Pembayaran via BSI Net', '<ol><li>Login ke BSI Net.</li><li>Pilih Pembayaran, sumber dana, lalu institusi.</li><li>Cari Xendit (kode 9347) dan masukkan nomor {va}.</li><li>Konfirmasi nominal {nominal} dan masukkan token.</li></ol>', 2),
+  ('BSI', 'Pembayaran via ATM BSI', '<ol><li>Masukkan kartu ATM dan PIN.</li><li>Pilih Pembayaran atau Pembelian, lalu Institusi.</li><li>Masukkan nomor {va}.</li><li>Konfirmasi nominal {nominal}.</li></ol>', 3),
+  ('BSI', 'Pembayaran dari bank lain', '<ol><li>Login ke bank Anda.</li><li>Pilih transfer ke Bank Syariah Indonesia.</li><li>Masukkan kode bank 451 diikuti nomor {va} bila kanal meminta kode bank terpisah, atau tempel nomor VA utuh jika kanal sudah memilih BSI.</li><li>Masukkan nominal {nominal} dan konfirmasi transfer online.</li></ol>', 4),
+  ('CIMB', 'Pembayaran via OCTO Mobile', '<ol><li>Buka OCTO Mobile dan masuk.</li><li>Pilih Transfer, lalu ke rekening CIMB Niaga lain.</li><li>Masukkan nomor {va} sebagai rekening tujuan baru.</li><li>Masukkan nominal {nominal}, konfirmasi, lalu masukkan password.</li></ol>', 1),
+  ('CIMB', 'Pembayaran via ATM CIMB', '<ol><li>Masukkan kartu ATM dan PIN.</li><li>Pilih Transfer ke CIMB Niaga lain.</li><li>Masukkan nomor {va} dan nominal {nominal}.</li><li>Konfirmasi transaksi.</li></ol>', 2),
+  ('CIMB', 'Pembayaran via OCTO Clicks', '<ol><li>Login ke OCTO Clicks.</li><li>Pilih Transfer ke CIMB Niaga lain.</li><li>Masukkan nomor {va} dan nominal {nominal}.</li><li>Konfirmasi dan masukkan password.</li></ol>', 3),
+  ('MUAMALAT', 'Pembayaran via MDIN', '<ol><li>Login ke MDIN.</li><li>Pilih Beli atau Bayar, tagihan, lalu Virtual Account.</li><li>Masukkan nomor {va} dan nominal {nominal}.</li><li>Konfirmasi lalu masukkan PIN.</li></ol>', 1),
+  ('MUAMALAT', 'Pembayaran via Muamalat DIN', '<ol><li>Login ke internet banking Muamalat.</li><li>Pilih Pembayaran, lalu Virtual Account.</li><li>Masukkan nomor {va} dan nominal {nominal}.</li><li>Konfirmasi lalu masukkan PIN.</li></ol>', 2),
+  ('MUAMALAT', 'Pembayaran via ATM Muamalat', '<ol><li>Masukkan kartu ATM dan PIN.</li><li>Pilih Pembayaran, lalu Virtual Account.</li><li>Masukkan nomor {va} dan nominal {nominal}.</li><li>Konfirmasi lalu masukkan PIN.</li></ol>', 3),
+  ('PERMATA', 'Pembayaran via PermataMobile X', '<ol><li>Login ke PermataMobile X.</li><li>Pilih Pembayaran Tagihan, lalu Virtual Account.</li><li>Masukkan nomor {va}.</li><li>Periksa nominal {nominal} dan masukkan token.</li></ol>', 1),
+  ('PERMATA', 'Pembayaran via PermataNet', '<ol><li>Login ke PermataNet.</li><li>Pilih Pembayaran Tagihan, lalu Virtual Account.</li><li>Masukkan nomor {va}.</li><li>Konfirmasi nominal {nominal} dan masukkan token SMS.</li></ol>', 2),
+  ('PERMATA', 'Pembayaran via ATM Permata', '<ol><li>Masukkan kartu ATM dan PIN.</li><li>Pilih Transaksi Lainnya, Pembayaran, Pembayaran Lainnya, lalu Virtual Account.</li><li>Masukkan nomor {va}.</li><li>Konfirmasi nominal {nominal} dan masukkan PIN.</li></ol>', 3),
+  ('ALFAMART', 'Pembayaran di Alfamart Group', '<ol><li>Kode ini berlaku di Alfamart, Alfamidi, Dan+Dan, dan Lawson.</li><li>Pembayaran di bawah Rp2,5 juta bisa di keempat gerai. Di atas Rp2,5 juta tidak tersedia di Alfamidi.</li><li>Datang sebelum kode kedaluwarsa.</li><li>Minta kasir memproses pembayaran BisnisLevelUp.id via Xendit, atau minta mereka memindai barcode.</li><li>Tunjukkan kode {kode} dan pastikan nominal {nominal}.</li><li>Tunai paling banyak Rp2,5 juta. Sisanya harus memakai kartu debit, kartu prabayar, atau e-wallet.</li><li>Simpan struk.</li></ol>', 1),
+  ('INDOMARET', 'Pembayaran di Indomaret', '<ol><li>Datang ke Indomaret sebelum kode kedaluwarsa.</li><li>Beritahu kasir Anda membayar BisnisLevelUp.id via Xendit.</li><li>Sebutkan kode {kode}.</li><li>Bayar nominal {nominal} yang tertera, lalu simpan struk.</li></ol>', 1),
+  ('QR_CODE', 'Pembayaran via QRIS', '<ol><li>Buka GoPay, OVO, DANA, LinkAja, ShopeePay, atau mobile banking.</li><li>Pilih Scan atau Bayar.</li><li>Arahkan kamera ke QR di halaman pembayaran.</li><li>Pastikan nominal {nominal}, lalu masukkan PIN.</li></ol>', 1),
+  ('GOPAY', 'Pembayaran via GoPay', '<ol><li>Popup GoPay terbuka setelah checkout.</li><li>Selesaikan pembayaran di aplikasi GoPay sebesar {nominal}.</li><li>Jika popup tertutup, buka lagi dari halaman pembayaran.</li></ol>', 1),
+  ('SHOPEEPAY', 'Pembayaran via ShopeePay', '<ol><li>Di halaman pembayaran, pilih lanjut ke ShopeePay.</li><li>Aplikasi atau halaman ShopeePay terbuka.</li><li>Selesaikan pembayaran sebesar {nominal}.</li></ol>', 1),
+  ('DANA', 'Pembayaran via DANA', '<ol><li>Di halaman pembayaran, pilih lanjut ke DANA.</li><li>Aplikasi atau halaman DANA terbuka.</li><li>Selesaikan pembayaran sebesar {nominal}.</li></ol>', 1),
+  ('LINKAJA', 'Pembayaran via LinkAja', '<ol><li>Di halaman pembayaran, pilih lanjut ke LinkAja.</li><li>Aplikasi atau halaman LinkAja terbuka.</li><li>Selesaikan pembayaran sebesar {nominal}.</li></ol>', 1),
+  ('BCA_MANUAL', 'Transfer manual BCA', '<ol><li>Transfer tepat {nominal}, termasuk digit unik di belakang, ke rekening BCA.</li><li>Nomor rekening {rekening}.</li><li>Atas nama {atas_nama}.</li><li>Simpan bukti transfer. Admin mencocokkan nominal unik ini.</li></ol>', 1),
+  ('MANDIRI_MANUAL', 'Transfer manual Mandiri', '<ol><li>Transfer tepat {nominal}, termasuk digit unik di belakang, ke rekening Mandiri.</li><li>Nomor rekening {rekening}.</li><li>Atas nama {atas_nama}.</li><li>Simpan bukti transfer. Admin mencocokkan nominal unik ini.</li></ol>', 1)
+) AS i(code, title, content, sort_order) ON m.code = i.code;
 
 INSERT INTO coupon_codes (code, description, discount_type, discount_value, min_purchase, valid_from, valid_until, is_active)
 SELECT 'LEVELUP10', 'Diskon 10 persen', 'PERCENTAGE', 10, 0, NOW() - INTERVAL '1 day', NOW() + INTERVAL '365 days', true
 WHERE NOT EXISTS (SELECT 1 FROM coupon_codes WHERE code = 'LEVELUP10');
 
 INSERT INTO notification_templates (event_trigger, channel, subject, message_content) VALUES
-('ORDER_PAID', 'EMAIL', 'Pembayaran BisnisLevelUp.id diterima', 'Halo {nama}, pembayaran invoice {invoice} sebesar {nominal} sudah kami terima.'),
-('ORDER_PAID', 'WA', NULL, 'Halo {nama}, pembayaran {invoice} sebesar {nominal} berhasil. Tim kami akan menghubungi Anda untuk mulai audit.')
+('ORDER_CREATED', 'EMAIL', 'Instruksi pembayaran {invoice}', '<p>Halo {nama},</p><p>Pesanan <strong>{produk}</strong> sudah dibuat.</p><p>Invoice: {invoice}<br>Metode: {metode}<br>Nominal: <strong>{nominal}</strong><br>Batas bayar: {batas}</p>{instruksi}<p><a href="{bayar_url}">Buka halaman pembayaran</a></p>'),
+('ORDER_PAID', 'EMAIL', 'Pembayaran {invoice} diterima', '<p>Halo {nama},</p><p>Pembayaran <strong>{nominal}</strong> untuk <strong>{produk}</strong> sudah kami terima.</p><p>Invoice: {invoice}<br>Metode: {metode}</p><p><a href="{dashboard_url}">Masuk ke akun dan mulai audit</a></p>'),
+('ORDER_PAID', 'WA', NULL, 'Halo {nama}, pembayaran {invoice} sebesar {nominal} berhasil. Tim kami akan menghubungi Anda untuk mulai audit.'),
+('TEST_RESULT', 'EMAIL', 'Hasil audit {audit_name} siap diunduh', '<p>Halo {nama},</p><p>Audit <strong>{audit_name}</strong> sudah selesai.</p><p>Skor: <strong>{skor}%</strong><br>Status: {status}</p><p>Laporan PDF terlampir dan juga bisa diunduh di tautan ini:</p><p><a href="{pdf_url}">Unduh laporan PDF</a></p><p><a href="{dashboard_url}">Lihat hasil di akun</a></p>')
 ON CONFLICT (event_trigger, channel) DO NOTHING;
+
+UPDATE notification_templates
+SET subject = 'Pembayaran {invoice} diterima',
+    message_content = '<p>Halo {nama},</p><p>Pembayaran <strong>{nominal}</strong> untuk <strong>{produk}</strong> sudah kami terima.</p><p>Invoice: {invoice}<br>Metode: {metode}</p><p><a href="{dashboard_url}">Masuk ke akun dan mulai audit</a></p>',
+    updated_at = NOW()
+WHERE event_trigger = 'ORDER_PAID' AND channel = 'EMAIL'
+  AND message_content = 'Halo {nama}, pembayaran invoice {invoice} sebesar {nominal} sudah kami terima.';
 
 INSERT INTO testimonials (name, role, content, rating, business_type, is_featured, is_active, sort_order)
 SELECT 'Sari Wulandari', 'Owner katering, Bandung', 'Saya baru sadar kelas yang saya beli selama ini untuk fase yang salah.', 5, 'F&B', true, true, 1

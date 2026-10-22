@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { placeOrder } from "@/lib/checkout";
+import { notifyOrderCreated } from "@/lib/email/notify";
 
 const schema = z.object({
   productCode: z.string().min(1),
@@ -24,7 +25,14 @@ export async function POST(req: NextRequest) {
     const body = schema.parse(await req.json());
     const origin = req.nextUrl.origin;
     const result = await placeOrder({ ...body, origin });
-    return NextResponse.json({ data: result });
+    if (["bank_transfer", "va", "retail_outlet"].includes(result.methodType)) {
+      try {
+        await notifyOrderCreated(result.invoice, origin);
+      } catch (error) {
+        console.error("[checkout email]", error);
+      }
+    }
+    return NextResponse.json({ data: { invoice: result.invoice, redirect: result.redirect } });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Checkout gagal";
     return NextResponse.json({ error: message }, { status: 400 });

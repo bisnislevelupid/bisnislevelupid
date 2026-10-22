@@ -1,16 +1,23 @@
 import { Resend } from "resend";
 import { withPool } from "@/lib/db";
-import { fillPlaceholders, wrapEmailHtml } from "@/lib/email/html";
+import { fillPlaceholders, htmlToText, wrapEmailHtml } from "@/lib/email/html";
+import { sendFonnte } from "@/lib/whatsapp/fonnte";
 
 type SendInput = {
   event: string;
   to: string | null;
+  phone?: string | null;
   invoice?: string | null;
   orderId?: string | null;
   sessionId?: string | null;
   values: Record<string, string>;
   attachments?: Array<{ filename: string; content: Buffer }>;
+  fileUrl?: string | null;
 };
+
+function isWhatsApp(channel: string) {
+  return channel === "WA" || channel === "WHATSAPP";
+}
 
 export function fromAddress() {
   const domain = process.env.RESEND_EMAIL_DOMAIN || "bisnislevelup.id";
@@ -34,17 +41,41 @@ export async function dispatchTemplate(input: SendInput) {
       return;
     }
     for (const tpl of rows) {
-      const message = fillPlaceholders(String(tpl.message_content), input.values);
+      const raw = fillPlaceholders(String(tpl.message_content), input.values);
       const subject = fillPlaceholders(String(tpl.subject ?? "BisnisLevelUp.id"), input.values);
-      const recipient = tpl.channel === "EMAIL" ? input.to : null;
-      if (tpl.channel !== "EMAIL") {
+      if (isWhatsApp(String(tpl.channel))) {
+        const message = htmlToText(raw);
+        const recipient = input.phone?.trim() || "";
+        if (!recipient) {
+          await pool.query(
+            `INSERT INTO notification_logs (template_id, invoice_code, order_id, session_id, recipient, channel, request_payload, status, error_message)
+             VALUES ($1,$2,$3,$4,'-',$5,$6,'FAILED',$7)`,
+            [tpl.id, input.invoice ?? null, input.orderId ?? null, input.sessionId ?? null, tpl.channel, message, "Nomor WhatsApp kosong"],
+          );
+          continue;
+        }
+        const result = await sendFonnte({ target: recipient, message, fileUrl: input.fileUrl });
         await pool.query(
-          `INSERT INTO notification_logs (template_id, invoice_code, order_id, session_id, recipient, channel, request_payload, response_payload, status, error_message)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'SKIPPED',$9)`,
-          [tpl.id, input.invoice ?? null, input.orderId ?? null, input.sessionId ?? null, recipient ?? "-", tpl.channel, message, "Kanal belum dikirim", "Hanya email yang aktif"],
+          `INSERT INTO notification_logs (template_id, invoice_code, order_id, session_id, recipient, channel, request_payload, response_payload, status, error_message, sent_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $9 = 'SENT' THEN NOW() ELSE NULL END)`,
+          [
+            tpl.id,
+            input.invoice ?? null,
+            input.orderId ?? null,
+            input.sessionId ?? null,
+            recipient,
+            tpl.channel,
+            message,
+            JSON.stringify(result.response ?? {}),
+            result.ok ? "SENT" : "FAILED",
+            result.error,
+          ],
         );
         continue;
       }
+      if (tpl.channel !== "EMAIL") continue;
+      const message = raw;
+      const recipient = input.to?.trim() || "";
       if (!recipient) {
         await pool.query(
           `INSERT INTO notification_logs (template_id, invoice_code, order_id, session_id, recipient, channel, request_payload, status, error_message)

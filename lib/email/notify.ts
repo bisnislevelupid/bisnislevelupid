@@ -46,7 +46,7 @@ export async function instructionHtml(order: {
 async function loadOrder(invoice: string) {
   return withPool(async (pool) => {
     const { rows } = await pool.query(
-      `SELECT o.id::text, o.invoice_code, o.customer_name, o.customer_email, o.total_amount::text,
+      `SELECT o.id::text, o.invoice_code, o.customer_name, o.customer_email, o.customer_phone, o.total_amount::text,
               o.va_number, o.payment_code, o.expired_at, o.payment_method_id::text,
               m.name AS method_name, m.type AS method_type, m.account_number, m.account_holder,
               (SELECT product_name FROM order_items WHERE order_id = o.id ORDER BY id LIMIT 1) AS product_name
@@ -61,6 +61,7 @@ async function loadOrder(invoice: string) {
           invoice_code: string;
           customer_name: string | null;
           customer_email: string | null;
+          customer_phone: string | null;
           total_amount: string;
           va_number: string | null;
           payment_code: string | null;
@@ -83,6 +84,7 @@ export async function notifyOrderCreated(invoice: string, origin: string) {
   await dispatchTemplate({
     event: "ORDER_CREATED",
     to: order.customer_email,
+    phone: order.customer_phone,
     invoice: order.invoice_code,
     orderId: order.id,
     values: {
@@ -105,6 +107,7 @@ export async function notifyOrderPaid(invoice: string, origin: string) {
   await dispatchTemplate({
     event: "ORDER_PAID",
     to: order.customer_email,
+    phone: order.customer_phone,
     invoice: order.invoice_code,
     orderId: order.id,
     values: {
@@ -123,10 +126,10 @@ export async function notifyTestResult(customerId: string, sessionId: string, or
   if (!report) return;
   const contact = await withPool(async (pool) => {
     const { rows } = await pool.query(
-      `SELECT c.email, c.name FROM customers c WHERE c.id = $1`,
+      `SELECT c.email, c.name, c.phone FROM customers c WHERE c.id = $1`,
       [customerId],
     );
-    return rows[0] as { email: string; name: string } | undefined;
+    return rows[0] as { email: string; name: string; phone: string | null } | undefined;
   });
   const pdf = buildReportPdf(report);
   let pdfUrl = report.pdfUrl ?? `${origin}/api/akun/laporan/${sessionId}/pdf`;
@@ -148,6 +151,8 @@ export async function notifyTestResult(customerId: string, sessionId: string, or
   await dispatchTemplate({
     event: "TEST_RESULT",
     to: contact?.email ?? null,
+    phone: contact?.phone ?? null,
+    fileUrl: pdfUrl.startsWith("https://") && !pdfUrl.includes("/api/") ? pdfUrl : null,
     sessionId,
     values: {
       nama: contact?.name ?? report.respondent ?? "",

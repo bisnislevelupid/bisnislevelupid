@@ -126,18 +126,113 @@ SELECT 'LEVELUP10', 'Diskon 10 persen', 'PERCENTAGE', 10, 0, NOW() - INTERVAL '1
 WHERE NOT EXISTS (SELECT 1 FROM coupon_codes WHERE code = 'LEVELUP10');
 
 INSERT INTO notification_templates (event_trigger, channel, subject, message_content) VALUES
-('ORDER_CREATED', 'EMAIL', 'Instruksi pembayaran {invoice}', '<p>Halo {nama},</p><p>Pesanan <strong>{produk}</strong> sudah dibuat.</p><p>Invoice: {invoice}<br>Metode: {metode}<br>Nominal: <strong>{nominal}</strong><br>Batas bayar: {batas}</p>{instruksi}<p><a href="{bayar_url}">Buka halaman pembayaran</a></p>'),
-('ORDER_PAID', 'EMAIL', 'Pembayaran {invoice} diterima', '<p>Halo {nama},</p><p>Pembayaran <strong>{nominal}</strong> untuk <strong>{produk}</strong> sudah kami terima.</p><p>Invoice: {invoice}<br>Metode: {metode}</p><p><a href="{dashboard_url}">Masuk ke akun dan mulai audit</a></p>'),
+('ORDER_CREATED', 'EMAIL', 'Instruksi pembayaran {invoice}', $email$<div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e2e8f0;">
+<div style="background:#064e3b;padding:26px 28px;">
+<div style="color:#a7f3d0;font-size:12px;letter-spacing:0.16em;font-weight:700;">BISNISLEVELUP.ID</div>
+<div style="color:#ecfdf5;font-size:13px;margin-top:8px;">Menunggu pembayaran</div>
+<div style="color:#ffffff;font-size:24px;line-height:1.3;font-weight:700;margin-top:6px;">Selesaikan pembayaran Anda</div>
+</div>
+<div style="padding:28px;">
+<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Halo {nama},</p>
+<p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155;">Pesanan <strong>{produk}</strong> sudah kami catat. Bayar sebelum batas waktu agar akses audit langsung terbuka.</p>
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;margin:0 0 18px;">
+<div style="font-size:12px;color:#64748b;font-weight:700;letter-spacing:0.04em;">RINGKASAN</div>
+<div style="margin-top:10px;font-size:14px;line-height:1.7;">Invoice <strong>{invoice}</strong><br>Metode <strong>{metode}</strong><br>Batas bayar <strong>{batas}</strong></div>
+<div style="margin-top:12px;font-size:22px;font-weight:700;color:#064e3b;">{nominal}</div>
+</div>
+<div style="margin:0 0 18px;font-size:14px;line-height:1.6;color:#334155;">{instruksi}</div>
+<a href="{bayar_url}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:999px;">Buka halaman pembayaran</a>
+</div>
+<div style="background:#f8fafc;padding:16px 28px;color:#64748b;font-size:12px;line-height:1.5;">Audit fase bisnis untuk pengusaha Indonesia. Email ini terkait pesanan atau hasil tes di akun Anda.</div>
+</div>$email$),
+('ORDER_PAID', 'EMAIL', 'Pembayaran {invoice} diterima', $email$<div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e2e8f0;">
+<div style="background:#064e3b;padding:26px 28px;">
+<div style="color:#a7f3d0;font-size:12px;letter-spacing:0.16em;font-weight:700;">BISNISLEVELUP.ID</div>
+<div style="color:#ecfdf5;font-size:13px;margin-top:8px;">Pembayaran diterima</div>
+<div style="color:#ffffff;font-size:24px;line-height:1.3;font-weight:700;margin-top:6px;">Audit Anda sudah terbuka</div>
+</div>
+<div style="padding:28px;">
+<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Halo {nama},</p>
+<p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155;">Pembayaran untuk <strong>{produk}</strong> sudah masuk. Anda bisa mulai checklist dari akun.</p>
+<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:14px;padding:16px 18px;margin:0 0 18px;">
+<div style="font-size:12px;color:#047857;font-weight:700;letter-spacing:0.04em;">LUNAS</div>
+<div style="margin-top:10px;font-size:14px;line-height:1.7;">Invoice <strong>{invoice}</strong><br>Metode <strong>{metode}</strong></div>
+<div style="margin-top:12px;font-size:22px;font-weight:700;color:#064e3b;">{nominal}</div>
+</div>
+<a href="{dashboard_url}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:999px;">Masuk dan mulai audit</a>
+</div>
+<div style="background:#f8fafc;padding:16px 28px;color:#64748b;font-size:12px;line-height:1.5;">Audit fase bisnis untuk pengusaha Indonesia. Email ini terkait pesanan atau hasil tes di akun Anda.</div>
+</div>$email$),
 ('ORDER_PAID', 'WA', NULL, 'Halo {nama}, pembayaran {invoice} sebesar {nominal} berhasil. Tim kami akan menghubungi Anda untuk mulai audit.'),
-('TEST_RESULT', 'EMAIL', 'Hasil audit {audit_name} siap diunduh', '<p>Halo {nama},</p><p>Audit <strong>{audit_name}</strong> sudah selesai.</p><p>Skor: <strong>{skor}%</strong><br>Status: {status}</p><p>Laporan PDF terlampir dan juga bisa diunduh di tautan ini:</p><p><a href="{pdf_url}">Unduh laporan PDF</a></p><p><a href="{dashboard_url}">Lihat hasil di akun</a></p>')
-ON CONFLICT (event_trigger, channel) DO NOTHING;
-
-UPDATE notification_templates
-SET subject = 'Pembayaran {invoice} diterima',
-    message_content = '<p>Halo {nama},</p><p>Pembayaran <strong>{nominal}</strong> untuk <strong>{produk}</strong> sudah kami terima.</p><p>Invoice: {invoice}<br>Metode: {metode}</p><p><a href="{dashboard_url}">Masuk ke akun dan mulai audit</a></p>',
+('TEST_RESULT', 'EMAIL', 'Hasil audit {audit_name} siap diunduh', $email$<div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e2e8f0;">
+<div style="background:#064e3b;padding:26px 28px;">
+<div style="color:#a7f3d0;font-size:12px;letter-spacing:0.16em;font-weight:700;">BISNISLEVELUP.ID</div>
+<div style="color:#ecfdf5;font-size:13px;margin-top:8px;">Hasil diagnosis</div>
+<div style="color:#ffffff;font-size:24px;line-height:1.3;font-weight:700;margin-top:6px;">{audit_name}</div>
+</div>
+<div style="padding:28px;">
+<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Halo {nama},</p>
+<p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155;">Audit sudah selesai. Laporan PDF terlampir di email ini dan bisa diunduh dari tombol di bawah.</p>
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;margin:0 0 12px;">
+<div style="font-size:12px;color:#64748b;font-weight:700;">SKOR</div>
+<div style="font-size:28px;font-weight:700;color:#064e3b;margin-top:6px;">{skor}%</div>
+</div>
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;margin:0 0 18px;">
+<div style="font-size:12px;color:#64748b;font-weight:700;">STATUS</div>
+<div style="font-size:18px;font-weight:700;color:#0f172a;margin-top:8px;">{status}</div>
+</div>
+<a href="{pdf_url}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:999px;">Unduh laporan PDF</a>
+<a href="{dashboard_url}" style="display:inline-block;margin-left:8px;color:#047857;font-weight:700;text-decoration:none;padding:12px 8px;">Lihat di akun</a>
+</div>
+<div style="background:#f8fafc;padding:16px 28px;color:#64748b;font-size:12px;line-height:1.5;">Audit fase bisnis untuk pengusaha Indonesia. Email ini terkait pesanan atau hasil tes di akun Anda.</div>
+</div>$email$)
+ON CONFLICT (event_trigger, channel) DO UPDATE
+SET subject = EXCLUDED.subject,
+    message_content = EXCLUDED.message_content,
     updated_at = NOW()
-WHERE event_trigger = 'ORDER_PAID' AND channel = 'EMAIL'
-  AND message_content = 'Halo {nama}, pembayaran invoice {invoice} sebesar {nominal} sudah kami terima.';
+WHERE notification_templates.channel = 'EMAIL'
+  AND notification_templates.message_content NOT LIKE '%border-radius:18px%';
+
+INSERT INTO notification_templates (event_trigger, channel, subject, message_content) VALUES
+('ORDER_CREATED', 'WA', NULL, $wa$Halo {nama},
+
+Pesanan *{produk}* menunggu pembayaran.
+
+Invoice: {invoice}
+Metode: {metode}
+Nominal: {nominal}
+Batas: {batas}
+
+{instruksi}
+
+Bayar di: {bayar_url}
+
+— BisnisLevelUp.id$wa$),
+('ORDER_PAID', 'WA', NULL, $wa$Halo {nama},
+
+Pembayaran *{nominal}* untuk *{produk}* sudah kami terima.
+
+Invoice: {invoice}
+Metode: {metode}
+
+Mulai audit: {dashboard_url}
+
+— BisnisLevelUp.id$wa$),
+('TEST_RESULT', 'WA', NULL, $wa$Halo {nama},
+
+Audit *{audit_name}* sudah selesai.
+
+Skor: {skor}%
+Status: {status}
+
+Unduh laporan: {pdf_url}
+
+— BisnisLevelUp.id$wa$)
+ON CONFLICT (event_trigger, channel) DO UPDATE
+SET message_content = EXCLUDED.message_content,
+    updated_at = NOW()
+WHERE notification_templates.channel = 'WA'
+  AND notification_templates.message_content NOT LIKE '%— BisnisLevelUp.id%';
 
 INSERT INTO testimonials (name, role, content, rating, business_type, is_featured, is_active, sort_order)
 SELECT 'Sari Wulandari', 'Owner katering, Bandung', 'Saya baru sadar kelas yang saya beli selama ini untuk fase yang salah.', 5, 'F&B', true, true, 1

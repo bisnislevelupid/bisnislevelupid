@@ -1,6 +1,16 @@
 const ALLOWED = new Set([
   "p", "br", "strong", "b", "em", "i", "u", "a", "ul", "ol", "li", "h1", "h2", "h3", "h4", "blockquote", "span", "div",
+  "table", "thead", "tbody", "tr", "td", "th", "img",
 ]);
+
+function attr(source: string, name: string) {
+  const match = source.match(new RegExp(`${name}\\s*=\\s*("([^"]*)"|'([^']*)')`, "i"));
+  return match?.[2] ?? match?.[3] ?? "";
+}
+
+function safeStyle(value: string) {
+  return value.replace(/expression|javascript|url\s*\(|@import|behavior|-moz-binding/gi, "").replace(/"/g, "");
+}
 
 export function sanitizeEmailHtml(html: string) {
   return html
@@ -10,13 +20,25 @@ export function sanitizeEmailHtml(html: string) {
       if (!ALLOWED.has(tagName)) return "";
       if (tag.startsWith("</")) return `</${tagName}>`;
       if (tagName === "br") return "<br>";
+      const kept: string[] = [];
+      const style = safeStyle(attr(attrs, "style"));
+      if (style) kept.push(`style="${style}"`);
       if (tagName === "a") {
-        const href = attrs.match(/href\s*=\s*("([^"]*)"|'([^']*)')/i);
-        const url = href?.[2] ?? href?.[3] ?? "";
-        const safe = /^(https?:|mailto:|#|\{)/i.test(url) ? url : "#";
-        return `<a href="${safe}" style="color:#059669;">`;
+        const url = attr(attrs, "href");
+        const safe = /^(https?:|mailto:|#|\{)/i.test(url) ? url.replace(/"/g, "") : "#";
+        kept.unshift(`href="${safe}"`);
       }
-      return `<${tagName}>`;
+      if (tagName === "img") {
+        const src = attr(attrs, "src");
+        if (/^https?:/i.test(src)) kept.push(`src="${src.replace(/"/g, "")}"`);
+        const alt = attr(attrs, "alt").replace(/"/g, "");
+        kept.push(`alt="${alt}"`);
+      }
+      if (tagName === "td" || tagName === "th") {
+        const align = attr(attrs, "align");
+        if (/^(left|center|right)$/i.test(align)) kept.push(`align="${align}"`);
+      }
+      return `<${tagName}${kept.length ? ` ${kept.join(" ")}` : ""}>`;
     });
 }
 
@@ -26,14 +48,22 @@ export function fillPlaceholders(template: string, values: Record<string, string
 
 export function wrapEmailHtml(body: string) {
   const inner = sanitizeEmailHtml(body);
-  return `<!DOCTYPE html><html><body style="margin:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;"><tr><td align="center" style="padding:24px 12px;">
-<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:560px;max-width:560px;background:#ffffff;border-radius:16px;">
-<tr><td style="padding:28px 28px 8px;font-size:13px;letter-spacing:0.04em;color:#059669;font-weight:700;">BisnisLevelUp.id</td></tr>
-<tr><td style="padding:8px 28px 28px;font-size:15px;line-height:1.6;color:#0f172a;">${inner}</td></tr>
-</table>
-<p style="font-size:12px;color:#94a3b8;margin:16px 0 0;">Email ini dikirim karena ada aktivitas di akun BisnisLevelUp.id Anda.</p>
+  return `<!DOCTYPE html><html><body style="margin:0;background:#eef2f6;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f6;"><tr><td align="center" style="padding:28px 12px;">
+<div id="email-body" style="width:560px;max-width:560px;text-align:left;">${inner}</div>
 </td></tr></table></body></html>`;
+}
+
+export function htmlToText(html: string) {
+  return html
+    .replace(/<li[^>]*>/gi, "\n- ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|h[1-4]|ol|ul|tr)>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export function rupiah(value: string | number) {

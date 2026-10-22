@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { placeOrder } from "@/lib/checkout";
 import { notifyOrderCreated } from "@/lib/email/notify";
+import { runLater } from "@/lib/notify/later";
 
 const schema = z.object({
   productCode: z.string().min(1),
@@ -26,11 +27,7 @@ export async function POST(req: NextRequest) {
     const origin = req.nextUrl.origin;
     const result = await placeOrder({ ...body, origin });
     if (["bank_transfer", "va", "retail_outlet"].includes(result.methodType)) {
-      try {
-        await notifyOrderCreated(result.invoice, origin);
-      } catch (error) {
-        console.error("[checkout email]", error);
-      }
+      runLater(() => notifyOrderCreated(result.invoice, origin));
     }
     return NextResponse.json({ data: { invoice: result.invoice, redirect: result.redirect } });
   } catch (err) {

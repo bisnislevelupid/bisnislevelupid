@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { withPool } from "@/lib/db";
 import { isAdminTable } from "@/lib/admin/resources";
 import { notifyOrderPaid, siteOrigin } from "@/lib/email/notify";
+import { runLater } from "@/lib/notify/later";
 
 const READONLY = new Set(["id", "created_at", "updated_at", "paid_at", "sent_at"]);
 const HIDDEN = new Set(["password_hash"]);
@@ -177,13 +178,7 @@ export async function mutateResource(
     }
     return hideSecrets(updated.rows[0] as Record<string, unknown>);
   });
-  if (invoiceJustPaid) {
-    try {
-      await notifyOrderPaid(invoiceJustPaid, siteOrigin());
-    } catch (error) {
-      console.error("[admin paid email]", error);
-    }
-  }
+  if (invoiceJustPaid) runLater(() => notifyOrderPaid(invoiceJustPaid as string, siteOrigin()));
   return saved;
 }
 

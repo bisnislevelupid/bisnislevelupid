@@ -258,7 +258,7 @@ export async function getOrderPublic(invoice: string) {
     const { rows } = await pool.query(
       `SELECT o.invoice_code, o.status, o.total_amount::text, o.unique_amount::text, o.subtotal::text,
               o.discount_amount::text, o.va_number, o.qr_string, o.payment_code, o.payment_url,
-              o.snap_token, o.expired_at, o.paid_at,
+              o.snap_token, o.expired_at, o.paid_at, o.transfer_proof_url,
               m.code AS method_code, m.name AS method_name, m.type AS method_type, m.provider,
               m.logo_url, m.account_number, m.account_holder, m.is_redirect
        FROM orders o

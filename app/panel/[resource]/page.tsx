@@ -9,6 +9,7 @@ const dedicated: Record<string, string> = {
   payment_logs: "/panel/log-pembayaran",
   notification_templates: "/panel/template-notifikasi",
   notification_logs: "/panel/log-notifikasi",
+  orders: "/panel/orders",
 };
 
 export default async function ResourcePage({

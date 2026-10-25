@@ -17,7 +17,7 @@ async function tokenFromCookie(realm: AuthRealm): Promise<JWT | null> {
   const raw = jar.get(sessionCookie(realm))?.value;
   if (!raw || !process.env.NEXTAUTH_SECRET) return null;
   try {
-    return await decode({ token: raw, secret: process.env.NEXTAUTH_SECRET });
+    return await decode({ token: raw, secret: process.env.NEXTAUTH_SECRET, salt: sessionCookie(realm) });
   } catch {
     return null;
   }
@@ -44,11 +44,13 @@ export async function getSuperadminSession() {
 }
 
 export async function superadminFromRequest(req: NextRequest) {
+  const name = sessionCookie("superadmin");
   const token = await getToken({
     req,
     secret: process.env.NEXTAUTH_SECRET,
-    cookieName: sessionCookie("superadmin"),
+    cookieName: name,
     secureCookie: process.env.NEXTAUTH_URL?.startsWith("https://") ?? false,
+    decode: (params) => decode({ ...params, salt: name }),
   });
   return asSession(token, "superadmin");
 }

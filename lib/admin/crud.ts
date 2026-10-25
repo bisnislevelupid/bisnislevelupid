@@ -194,7 +194,7 @@ export async function dashboardStats() {
     `);
     const recent = await pool.query(
       `SELECT * FROM (
-         SELECT DISTINCT ON (o.id) o.invoice_code, o.customer_name, o.customer_email, o.total_amount::text, o.status,
+         SELECT DISTINCT ON (o.id) o.id::text, o.invoice_code, o.customer_name, o.customer_email, o.total_amount::text, o.status,
                 COALESCE(p.name, o.payment_type) AS product_name, m.name AS method_name, o.created_at
          FROM orders o
          LEFT JOIN order_items oi ON oi.order_id = o.id

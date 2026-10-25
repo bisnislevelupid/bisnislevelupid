@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import {
   BadgePlus,
@@ -9,6 +9,7 @@ import {
   Bell,
   BookOpen,
   CheckSquare,
+  ChevronDown,
   ClipboardList,
   CreditCard,
   ExternalLink,
@@ -87,13 +88,34 @@ const ICONS: Record<string, LucideIcon> = {
   Zap,
 };
 
+function navItem(active: boolean): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: "10px 12px",
+    borderRadius: 10,
+    background: active ? "rgba(16,185,129,.18)" : "transparent",
+    color: active ? "#34d399" : "#cbd5e1",
+    border: active ? "1px solid rgba(52,211,153,.3)" : "1px solid transparent",
+    fontWeight: active ? 700 : 500,
+    fontSize: "0.88rem",
+    textAlign: "left",
+  };
+}
+
 export function PanelShell({ children, pending, adminName }: { children: React.ReactNode; pending: number; adminName: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const section = sectionForPath(pathname);
+  const [expanded, setExpanded] = useState<string | null>(section?.href ?? null);
+  useEffect(() => {
+    if (section?.href) setExpanded(section.href);
+  }, [section?.href]);
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc", color: "#0f172a" }}>
+    <div className="admin-root" style={{ display: "flex", minHeight: "100vh", background: "#f8fafc", color: "#0f172a" }}>
       {open ? <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 90 }} /> : null}
       <aside
         style={{
@@ -130,33 +152,53 @@ export function PanelShell({ children, pending, adminName }: { children: React.R
               {PANEL_SECTIONS.map((item) => {
                 const Icon = ICONS[item.icon] ?? LayoutDashboard;
                 const active = item.href === "/panel" ? pathname === "/panel" : section?.href === item.href;
+                const isOpen = expanded === item.href;
+                if (!item.tabs.length) {
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setOpen(false)}
+                      style={navItem(active)}
+                    >
+                      <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <Icon size={18} />
+                        {item.label}
+                      </span>
+                    </Link>
+                  );
+                }
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setOpen(false)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 10,
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      background: active ? "rgba(16,185,129,.18)" : "transparent",
-                      color: active ? "#34d399" : "#cbd5e1",
-                      border: active ? "1px solid rgba(52,211,153,.3)" : "1px solid transparent",
-                      fontWeight: active ? 700 : 500,
-                      fontSize: "0.88rem",
-                    }}
-                  >
-                    <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <Icon size={18} />
-                      {item.label}
-                    </span>
-                    {item.label === "Pembayaran" && pending > 0 ? (
-                      <span style={{ fontSize: "0.68rem", background: "#10b981", color: "#fff", borderRadius: 999, padding: "2px 6px" }}>{pending}</span>
+                  <div key={item.href}>
+                    <button type="button" onClick={() => setExpanded(isOpen ? null : item.href)} style={{ ...navItem(active), width: "100%", cursor: "pointer" }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <Icon size={18} />
+                        {item.label}
+                      </span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {item.label === "Pembayaran" && pending > 0 ? (
+                          <span style={{ fontSize: "0.68rem", background: "#10b981", color: "#fff", borderRadius: 999, padding: "2px 6px" }}>{pending}</span>
+                        ) : null}
+                        <ChevronDown size={16} style={{ transform: isOpen ? "rotate(180deg)" : "none" }} />
+                      </span>
+                    </button>
+                    {isOpen ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2, margin: "4px 0 8px 16px", borderLeft: "1px solid rgba(255,255,255,.12)", paddingLeft: 8 }}>
+                        {item.tabs.map((tab) => {
+                          const TabIcon = ICONS[tab.icon] ?? LayoutDashboard;
+                          const tabActive = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+                          return (
+                            <Link key={tab.href} href={tab.href} onClick={() => setOpen(false)} style={{ ...navItem(tabActive), fontSize: "0.82rem", padding: "8px 10px" }}>
+                              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <TabIcon size={15} />
+                                {tab.label}
+                              </span>
+                            </Link>
+                          );
+                        })}
+                      </div>
                     ) : null}
-                  </Link>
+                  </div>
                 );
               })}
             </nav>
@@ -203,40 +245,16 @@ export function PanelShell({ children, pending, adminName }: { children: React.R
           </div>
         </header>
         <main style={{ padding: 32, flex: 1 }}>
-          {section && section.tabs.length > 1 ? (
-            <div style={{ display: "flex", gap: 8, overflowX: "auto", marginBottom: 20, paddingBottom: 4 }}>
-              {section.tabs.map((tab) => {
-                const Icon = ICONS[tab.icon] ?? LayoutDashboard;
-                const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
-                return (
-                  <Link
-                    key={tab.href}
-                    href={tab.href}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      whiteSpace: "nowrap",
-                      borderRadius: 999,
-                      padding: "8px 14px",
-                      background: active ? "#059669" : "#fff",
-                      color: active ? "#fff" : "#334155",
-                      border: active ? "1px solid #059669" : "1px solid #e2e8f0",
-                      fontWeight: 700,
-                      fontSize: "0.84rem",
-                    }}
-                  >
-                    <Icon size={15} />
-                    {tab.label}
-                  </Link>
-                );
-              })}
-            </div>
-          ) : null}
           {children}
         </main>
       </div>
       <style>{`
+        .admin-root, .admin-root * {
+          font-family: "Source Sans Pro", sans-serif !important;
+        }
+        .admin-root { font-size: 13px; }
+        .admin-main table thead th { background: #059669; color: #fff !important; }
+        .admin-main .status-pill { color: #fff; }
         @media (max-width: 900px) {
           .admin-sidebar { transform: translateX(-100%); }
           .admin-main { margin-left: 0 !important; }

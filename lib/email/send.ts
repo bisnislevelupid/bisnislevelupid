@@ -55,9 +55,10 @@ export async function dispatchTemplate(input: SendInput) {
           continue;
         }
         const result = await sendFonnte({ target: recipient, message, fileUrl: input.fileUrl });
+        const waStatus = result.ok ? "SENT" : "FAILED";
         await pool.query(
           `INSERT INTO notification_logs (template_id, invoice_code, order_id, session_id, recipient, channel, request_payload, response_payload, status, error_message, sent_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $9 = 'SENT' THEN NOW() ELSE NULL END)`,
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $11::varchar = 'SENT' THEN NOW() ELSE NULL END)`,
           [
             tpl.id,
             input.invoice ?? null,
@@ -67,8 +68,9 @@ export async function dispatchTemplate(input: SendInput) {
             tpl.channel,
             message,
             JSON.stringify(result.response ?? {}),
-            result.ok ? "SENT" : "FAILED",
+            waStatus,
             result.error,
+            waStatus,
           ],
         );
         continue;
@@ -103,9 +105,10 @@ export async function dispatchTemplate(input: SendInput) {
           html,
           attachments: input.attachments?.map((file) => ({ filename: file.filename, content: file.content })),
         });
+        const emailStatus = error ? "FAILED" : "SENT";
         await pool.query(
           `INSERT INTO notification_logs (template_id, invoice_code, order_id, session_id, recipient, channel, request_payload, response_payload, status, error_message, sent_at)
-           VALUES ($1,$2,$3,$4,$5,'EMAIL',$6,$7,$8,$9, CASE WHEN $8 = 'SENT' THEN NOW() ELSE NULL END)`,
+           VALUES ($1,$2,$3,$4,$5,'EMAIL',$6,$7,$8,$9, CASE WHEN $10::varchar = 'SENT' THEN NOW() ELSE NULL END)`,
           [
             tpl.id,
             input.invoice ?? null,
@@ -114,8 +117,9 @@ export async function dispatchTemplate(input: SendInput) {
             recipient,
             html,
             JSON.stringify(error ?? data ?? {}),
-            error ? "FAILED" : "SENT",
+            emailStatus,
             error?.message ?? null,
+            emailStatus,
           ],
         );
       } catch (error) {

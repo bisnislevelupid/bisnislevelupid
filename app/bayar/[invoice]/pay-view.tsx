@@ -22,6 +22,7 @@ type Order = {
   account_holder: string | null;
   customer_name?: string | null;
   expired_at: string | null;
+  transfer_proof_url?: string | null;
   instructions: Array<{ title: string; content: string }>;
 };
 
@@ -204,6 +205,7 @@ export function PayView({
             {order.provider === "Manual" && order.account_number ? (
               <>
                 <CopyRow label={`Rekening ${order.account_holder ?? ""}`} value={order.account_number} copyValue={order.account_number} mono />
+                <ProofUpload invoice={order.invoice_code} current={order.transfer_proof_url ?? null} />
               </>
             ) : null}
             <Countdown expiredAt={order.expired_at} now={now} paid={paid} />
@@ -259,6 +261,69 @@ export function PayView({
           </section>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ProofUpload({ invoice, current }: { invoice: string; current: string | null }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [saved, setSaved] = useState(current);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  function choose(next: File | null) {
+    setError("");
+    setFile(next);
+    setPreview((previous) => {
+      if (previous) URL.revokeObjectURL(previous);
+      return next ? URL.createObjectURL(next) : null;
+    });
+  }
+
+  async function submit() {
+    if (!file || pending) return;
+    setPending(true);
+    setError("");
+    const body = new FormData();
+    body.set("file", file);
+    const res = await fetch(`/api/orders/${encodeURIComponent(invoice)}/proof`, { method: "POST", body });
+    const json = await res.json().catch(() => ({}));
+    setPending(false);
+    if (!res.ok) {
+      setError(json.error ?? "Gagal mengunggah bukti");
+      return;
+    }
+    setSaved(json.data.url);
+    choose(null);
+  }
+
+  const shown = preview || saved;
+
+  return (
+    <div style={{ marginTop: 16, border: "1px solid #e2e8f0", borderRadius: 14, padding: 14 }}>
+      <p style={{ fontWeight: 800, marginBottom: 6 }}>Bukti transfer</p>
+      <p style={{ color: "#64748b", fontSize: "0.82rem", marginBottom: 10 }}>
+        Pilih gambar dulu. Unggahan baru terjadi saat Anda menekan kirim. Gambar yang salah bisa diganti lalu dikirim ulang.
+      </p>
+      {shown ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={shown} alt="Pratinjau bukti transfer" style={{ width: "100%", maxHeight: 280, objectFit: "contain", borderRadius: 12, background: "#f8fafc" }} />
+      ) : null}
+      <label style={{ display: "inline-flex", marginTop: 10, fontWeight: 700, color: "#047857", cursor: "pointer" }}>
+        {file ? "Ganti gambar" : saved ? "Ganti bukti" : "Pilih gambar"}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          style={{ display: "none" }}
+          onChange={(event) => choose(event.target.files?.[0] ?? null)}
+        />
+      </label>
+      {file ? <p style={{ fontSize: "0.8rem", color: "#475569", marginTop: 6 }}>{file.name} belum terkirim</p> : null}
+      {error ? <p style={{ color: "#dc2626", fontSize: "0.85rem", marginTop: 8 }}>{error}</p> : null}
+      <button type="button" disabled={!file || pending} onClick={() => void submit()} className="btn btn-primary" style={{ width: "100%", marginTop: 12, borderRadius: 999, opacity: !file || pending ? 0.6 : 1 }}>
+        {pending ? "Mengunggah..." : saved ? "Kirim bukti pengganti" : "Kirim bukti transfer"}
+      </button>
     </div>
   );
 }

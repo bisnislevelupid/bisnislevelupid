@@ -37,33 +37,40 @@ export default async function PanelHome() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.88rem" }}>
             <thead>
               <tr style={{ color: "#64748b", textAlign: "left" }}>
-                {["Invoice", "Customer", "Produk", "Nominal", "Metode", "Status"].map((head) => (
+                {["Invoice", "Customer", "Produk", "Nominal", "Metode", "Status", ""].map((head) => (
                   <th key={head} style={{ padding: "10px 8px", fontWeight: 600 }}>{head}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {stats.recent.map((row: { invoice_code: string; customer_name: string; customer_email: string; product_name: string; total_amount: string; method_name: string; status: string }) => (
+              {stats.recent.map((row: { id: string; invoice_code: string; customer_name: string; customer_email: string; product_name: string; total_amount: string; method_name: string; status: string }) => (
                 <tr key={row.invoice_code} style={{ borderTop: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: "12px 8px", fontWeight: 700 }}>{row.invoice_code}</td>
-                  <td style={{ padding: "12px 8px" }}>
-                    <div>{row.customer_name}</div>
-                    <div style={{ color: "#94a3b8", fontSize: "0.75rem" }}>{row.customer_email}</div>
+                  <td style={{ padding: "12px 8px", fontWeight: 700 }}>
+                    <Link href={`/panel/orders/${row.id}`} style={{ color: "#059669", fontWeight: 700 }}>{row.invoice_code}</Link>
                   </td>
-                  <td style={{ padding: "12px 8px" }}>{row.product_name}</td>
-                  <td style={{ padding: "12px 8px" }}>{rupiah(row.total_amount)}</td>
-                  <td style={{ padding: "12px 8px" }}>{row.method_name}</td>
+                  <td style={{ padding: "12px 8px" }}>
+                    <Link href={`/panel/orders/${row.id}`} style={{ color: "inherit", display: "block" }}>
+                      <div>{row.customer_name}</div>
+                      <div style={{ color: "#94a3b8", fontSize: "0.75rem" }}>{row.customer_email}</div>
+                    </Link>
+                  </td>
+                  <td style={{ padding: "12px 8px" }}><Link href={`/panel/orders/${row.id}`} style={{ color: "inherit" }}>{row.product_name}</Link></td>
+                  <td style={{ padding: "12px 8px" }}><Link href={`/panel/orders/${row.id}`} style={{ color: "inherit" }}>{rupiah(row.total_amount)}</Link></td>
+                  <td style={{ padding: "12px 8px" }}><Link href={`/panel/orders/${row.id}`} style={{ color: "inherit" }}>{row.method_name}</Link></td>
                   <td style={{ padding: "12px 8px" }}>
                     <span style={{
-                      background: row.status === "PAID" ? "#ecfdf5" : "#fff7ed",
-                      color: row.status === "PAID" ? "#059669" : "#d97706",
+                      background: row.status === "PAID" ? "#059669" : "#d97706",
+                      color: "#fff",
                       borderRadius: 999,
-                      padding: "3px 8px",
+                      padding: "3px 10px",
                       fontSize: "0.72rem",
-                      fontWeight: 800,
+                      fontWeight: 700,
                     }}>
                       {row.status}
                     </span>
+                  </td>
+                  <td style={{ padding: "12px 8px" }}>
+                    <Link href={`/panel/orders/${row.id}`} style={{ display: "inline-flex", background: "#059669", color: "#fff", borderRadius: 999, padding: "4px 12px", fontWeight: 700, fontSize: "0.75rem" }}>Detail</Link>
                   </td>
                 </tr>
               ))}

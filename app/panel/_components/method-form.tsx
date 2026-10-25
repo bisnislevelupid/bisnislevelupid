@@ -7,6 +7,7 @@ import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type D
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
+import { InstructionEditor } from "./instruction-editor";
 
 type Step = { key: string; id?: string; title: string; content: string };
 
@@ -33,6 +34,8 @@ export function MethodForm({ id, method, instructions }: { id?: string; method?:
       key: step.id ?? crypto.randomUUID(),
     })),
   );
+  const [logoUrl, setLogoUrl] = useState(method?.logo_url ?? "");
+  const [logoError, setLogoError] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -58,7 +61,7 @@ export function MethodForm({ id, method, instructions }: { id?: string; method?:
       body: JSON.stringify({
         code: form.get("code"),
         name: form.get("name"),
-        logoUrl: form.get("logoUrl"),
+        logoUrl,
         type: form.get("type"),
         provider: form.get("provider"),
         adminFeeFlat: form.get("adminFeeFlat"),
@@ -89,19 +92,64 @@ export function MethodForm({ id, method, instructions }: { id?: string; method?:
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <label>Kode<input name="code" required defaultValue={method?.code} style={field} /></label>
         <label>Nama<input name="name" required defaultValue={method?.name} style={field} /></label>
-        <label>Tipe<input name="type" required defaultValue={method?.type ?? "BANK_TRANSFER"} style={field} /></label>
-        <label>Provider<input name="provider" required defaultValue={method?.provider ?? "MANUAL"} style={field} /></label>
+        <label>Tipe
+          <select name="type" required defaultValue={knownOr(TYPES, method?.type, "bank_transfer")} style={field}>
+            {options(TYPES, method?.type).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
+        </label>
+        <label>Provider
+          <select name="provider" required defaultValue={knownOr(PROVIDERS, method?.provider, "Manual")} style={field}>
+            {options(PROVIDERS, method?.provider).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
+        </label>
         <label>Biaya tetap<input name="adminFeeFlat" type="number" defaultValue={method?.admin_fee_flat ?? "0"} style={field} /></label>
         <label>Biaya persen<input name="adminFeePct" type="number" step="0.01" defaultValue={method?.admin_fee_pct ?? "0"} style={field} /></label>
         <label>Urutan<input name="sortOrder" type="number" defaultValue={method?.sort_order ?? 0} style={field} /></label>
-        <label>Logo URL<input name="logoUrl" defaultValue={method?.logo_url ?? ""} style={field} /></label>
+        <label>Logo
+          <span style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6 }}>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="" style={{ width: 72, height: 40, objectFit: "contain", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }} />
+            ) : (
+              <span style={{ width: 72, height: 40, border: "1px dashed #cbd5e1", borderRadius: 8 }} />
+            )}
+            <span style={{ fontWeight: 700, color: "#047857", cursor: "pointer" }}>
+              {logoUrl ? "Ganti gambar" : "Unggah gambar"}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                style={{ display: "none" }}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (!file) return;
+                  setLogoError("");
+                  const body = new FormData();
+                  body.set("file", file);
+                  body.set("key", "payment_logo");
+                  void fetch("/api/panel/upload", { method: "POST", body })
+                    .then(async (res) => {
+                      const json = await res.json();
+                      if (!res.ok) {
+                        setLogoError(json.error ?? "Gagal mengunggah logo");
+                        return;
+                      }
+                      setLogoUrl(json.data.url);
+                    })
+                    .catch(() => setLogoError("Gagal mengunggah logo"));
+                }}
+              />
+            </span>
+          </span>
+          {logoError ? <span style={{ color: "#b91c1c", fontWeight: 600 }}>{logoError}</span> : null}
+        </label>
         <label>Nomor rekening<input name="accountNumber" defaultValue={method?.account_number ?? ""} style={field} /></label>
         <label>Atas nama<input name="accountHolder" defaultValue={method?.account_holder ?? ""} style={field} /></label>
       </div>
       <label style={{ display: "flex", gap: 8 }}><input name="isActive" type="checkbox" defaultChecked={method?.is_active ?? true} /> Aktif</label>
       <label style={{ display: "flex", gap: 8 }}><input name="isRedirect" type="checkbox" defaultChecked={method?.is_redirect ?? false} /> Redirect ke payment gateway</label>
       <h2 style={{ fontSize: "1.05rem", marginTop: 8 }}>Instruksi pembayaran</h2>
-      <p style={{ color: "#64748b", fontSize: "0.85rem" }}>Tambah, ubah, atau geser langkah. Urutan ini yang tampil di halaman bayar.</p>
+      <p style={{ color: "#64748b", fontSize: "0.85rem" }}>Susun langkah seperti teks biasa. Yang tersimpan tetap HTML untuk halaman bayar.</p>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={steps.map((step) => step.key)} strategy={verticalListSortingStrategy}>
           {steps.map((step, index) => (
@@ -137,12 +185,36 @@ function InstructionStep({
         <GripVertical size={16} />
       </button>
       <input value={step.title} placeholder="Judul langkah" onChange={(event) => onChange({ title: event.target.value })} style={field} />
-      <textarea value={step.content} placeholder="Isi instruksi" onChange={(event) => onChange({ content: event.target.value })} style={{ ...field, minHeight: 80 }} />
+      <InstructionEditor value={step.content} onChange={(content) => onChange({ content })} />
       <button type="button" onClick={onRemove} style={ghost}>Hapus langkah</button>
     </div>
   );
 }
 
-const field: CSSProperties = { display: "block", width: "100%", marginTop: 6, border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 12px" };
+const TYPES = [
+  { value: "bank_transfer", label: "Transfer bank" },
+  { value: "va", label: "Virtual account" },
+  { value: "qr_code", label: "Kode QR" },
+  { value: "E-Wallet", label: "E-wallet" },
+  { value: "retail_outlet", label: "Gerai ritel" },
+];
+
+const PROVIDERS = [
+  { value: "Manual", label: "Manual" },
+  { value: "Xendit", label: "Xendit" },
+  { value: "Midtrans", label: "Midtrans" },
+];
+
+function options(list: { value: string; label: string }[], current?: string) {
+  if (current && !list.some((item) => item.value === current)) return [{ value: current, label: current }, ...list];
+  return list;
+}
+
+function knownOr(list: { value: string }[], current: string | undefined, fallback: string) {
+  if (current && (list.some((item) => item.value === current) || current)) return current;
+  return fallback;
+}
+
+const field: CSSProperties = { display: "block", width: "100%", marginTop: 6, border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 12px", background: "#fff" };
 const button: CSSProperties = { height: 42, border: "none", borderRadius: 999, background: "#059669", color: "#fff", fontWeight: 700, cursor: "pointer" };
 const ghost: CSSProperties = { justifySelf: "start", border: "1px solid #e2e8f0", background: "#fff", borderRadius: 999, padding: "6px 12px", cursor: "pointer" };

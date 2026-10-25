@@ -1,5 +1,6 @@
 import type { AuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { decode, encode } from "next-auth/jwt";
 import { withPool } from "@/lib/db";
 
 export type AuthRealm = "peserta" | "superadmin";
@@ -20,18 +21,45 @@ function secureCookie() {
 
 export function buildAuthOptions(realm: AuthRealm): AuthOptions {
   const secure = secureCookie();
+  const prefix = secure ? "__Secure-" : "";
+  const oauthCookie = { httpOnly: true, sameSite: "lax" as const, path: "/", secure };
+  const salt = sessionCookie(realm);
   return {
     secret: process.env.NEXTAUTH_SECRET,
     session: { strategy: "jwt", maxAge: 30 * DAY },
-    useSecureCookies: false,
+    useSecureCookies: secure,
+    jwt: {
+      async encode(params) {
+        return encode({ ...params, salt });
+      },
+      async decode(params) {
+        return decode({ ...params, salt });
+      },
+    },
     pages: {
       signIn: realm === "superadmin" ? "/masuk-admin" : "/masuk",
       error: realm === "superadmin" ? "/masuk-admin" : "/masuk",
     },
     cookies: {
       sessionToken: {
-        name: sessionCookie(realm),
+        name: salt,
         options: { httpOnly: true, sameSite: "lax", path: "/", secure },
+      },
+      callbackUrl: {
+        name: `${prefix}next-auth.callback-url`,
+        options: oauthCookie,
+      },
+      pkceCodeVerifier: {
+        name: `${prefix}next-auth.pkce.code_verifier`,
+        options: { ...oauthCookie, maxAge: 60 * 15 },
+      },
+      state: {
+        name: `${prefix}next-auth.state`,
+        options: { ...oauthCookie, maxAge: 60 * 15 },
+      },
+      nonce: {
+        name: `${prefix}next-auth.nonce`,
+        options: oauthCookie,
       },
     },
     providers: [

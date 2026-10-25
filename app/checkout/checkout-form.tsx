@@ -65,7 +65,7 @@ export function CheckoutForm({
   const [discount, setDiscount] = useState(0);
   const [couponNote, setCouponNote] = useState("");
   const [error, setError] = useState("");
-  const [pending, setPending] = useState(false);
+  const [phase, setPhase] = useState<"" | "create" | "redirect">("");
   const [agreed, setAgreed] = useState(false);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftJson = useRef<string | null>(null);
@@ -217,14 +217,17 @@ export function CheckoutForm({
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
+    if (phase) return;
+    setPhase("create");
     setError("");
     if (!validateFields() || !agreed) {
-      setPending(false);
+      setPhase("");
       if (!agreed) setError("Centang persetujuan ketentuan layanan.");
       return;
     }
-    const res = await fetch("/api/checkout", {
+    let res: Response;
+    try {
+      res = await fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -244,14 +247,20 @@ export function CheckoutForm({
         agree: agreed,
       }),
     });
-    const json = await res.json();
-    setPending(false);
+    } catch {
+      setPhase("");
+      setError("Checkout gagal. Periksa koneksi lalu coba lagi.");
+      return;
+    }
+    const json = await res.json().catch(() => ({}));
     if (!res.ok) {
+      setPhase("");
       setError(json.error ?? "Checkout gagal");
       return;
     }
     clearDraft();
-    if (json.data.redirect) {
+    setPhase("redirect");
+    if (json.data?.redirect) {
       window.location.href = json.data.redirect;
       return;
     }
@@ -264,7 +273,41 @@ export function CheckoutForm({
         @media (max-width: 720px) {
           .checkout-pair { grid-template-columns: 1fr !important; }
         }
+        @keyframes checkout-spin { to { transform: rotate(360deg); } }
       `}</style>
+      {phase ? (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 50,
+            background: "rgba(15,23,42,.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <div style={{ background: "#fff", borderRadius: 16, padding: "28px 32px", textAlign: "center", maxWidth: 320 }}>
+            <div
+              aria-hidden="true"
+              style={{
+                width: 36,
+                height: 36,
+                margin: "0 auto 14px",
+                borderRadius: "50%",
+                border: "3px solid #d1fae5",
+                borderTopColor: "#059669",
+                animation: "checkout-spin .8s linear infinite",
+              }}
+            />
+            <strong>{phase === "redirect" ? "Mengalihkan ke pembayaran..." : "Membuat pesanan..."}</strong>
+          </div>
+        </div>
+      ) : null}
+      <fieldset disabled={Boolean(phase)} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 32, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <section style={card}>
@@ -440,11 +483,11 @@ export function CheckoutForm({
             </label>
             {error ? <p style={{ color: "#dc2626", marginTop: 10, fontSize: "0.88rem" }}>{error}</p> : null}
             <button
-              disabled={pending}
+              disabled={Boolean(phase)}
               className="btn btn-primary"
               style={{ width: "100%", borderRadius: 999, marginTop: 16, padding: "14px 18px" }}
             >
-              {pending ? "Memproses..." : `Bayar Sekarang (${rupiah(total)}) →`}
+              {phase === "redirect" ? "Mengalihkan ke pembayaran..." : phase === "create" ? "Membuat pesanan..." : `Bayar Sekarang (${rupiah(total)}) →`}
             </button>
             <p style={{ textAlign: "center", color: "#94a3b8", fontSize: "0.75rem", marginTop: 10 }}>
               Garansi 100% uang kembali · Xendit secured
@@ -452,6 +495,7 @@ export function CheckoutForm({
           </section>
         </div>
       </div>
+      </fieldset>
     </form>
   );
 }

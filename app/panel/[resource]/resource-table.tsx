@@ -100,23 +100,25 @@ export function ResourceTable({ resource }: { resource: string }) {
       ) : null}
       <div className="overflow-auto rounded-lg border border-border bg-card">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-border bg-muted text-muted-foreground">
+          <thead className="border-b border-border">
             <tr>
+              <th className="px-4 py-3 font-medium text-white">No</th>
               {visible.map((col) => (
-                <th key={col.name} className="px-4 py-3 font-medium">{col.name.replaceAll("_", " ")}</th>
+                <th key={col.name} className="px-4 py-3 font-medium text-white">{col.name.replaceAll("_", " ")}</th>
               ))}
-              <th className="px-4 py-3 font-medium">Aksi</th>
+              <th className="px-4 py-3 font-medium text-white">Aksi</th>
             </tr>
           </thead>
           <tbody>
-            {payload?.data.map((row) => {
+            {payload?.data.map((row, index) => {
               const id = String(row[payload.pk]);
               return (
                 <tr key={id} className="border-b border-border last:border-0 hover:bg-muted/70">
+                  <td className="px-4 py-3">{(page - 1) * 10 + index + 1}</td>
                   {visible.map((col) => (
                     <td key={col.name} className="max-w-[240px] truncate px-4 py-3">
                       {col.name === "status" ? (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">{String(row[col.name] ?? "")}</span>
+                        <span className="inline-flex rounded-full bg-sky-700 px-2.5 py-0.5 text-xs font-semibold text-white">{String(row[col.name] ?? "")}</span>
                       ) : (
                         String(row[col.name] ?? "")
                       )}
@@ -124,10 +126,10 @@ export function ResourceTable({ resource }: { resource: string }) {
                   ))}
                   <td className="whitespace-nowrap px-4 py-3">
                     {resource === "customers" ? (
-                      <Link href={`/panel/customers/${encodeURIComponent(id)}/view`} className="mr-2 inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">Lihat</Link>
+                      <Link href={`/panel/customers/${encodeURIComponent(id)}/view`} className="mr-2 inline-flex rounded-full bg-sky-700 px-2.5 py-1 text-xs font-semibold text-white">Lihat</Link>
                     ) : null}
-                    <Link href={`/panel/${resource}/${encodeURIComponent(id)}`} className="mr-2 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-primary">Edit</Link>
-                    <button type="button" className="inline-flex rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-destructive" onClick={() => remove(id)}>Hapus</button>
+                    <Link href={`/panel/${resource}/${encodeURIComponent(id)}`} className="mr-2 inline-flex rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">Edit</Link>
+                    <button type="button" className="inline-flex rounded-full bg-red-600 px-2.5 py-1 text-xs font-semibold text-white" onClick={() => remove(id)}>Hapus</button>
                   </td>
                 </tr>
               );

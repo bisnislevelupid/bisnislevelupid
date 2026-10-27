@@ -32,6 +32,7 @@ test("label kolom panel berbahasa Indonesia", () => {
   assert.equal(columnLabel("email_verified_at"), "Email terverifikasi");
   assert.equal(tableLabel("test_questions"), "Bank soal");
   assert.equal(statusText("CANCELLED"), "Dibatalkan");
+  assert.equal(statusText("SKIPPED"), "Dilewati");
   assert.equal(formatCell({ name: "is_key", type: "boolean" }, false), "Tidak");
   assert.equal(formatCell({ name: "is_key", type: "boolean" }, true), "Ya ★");
   assert.equal(formatCell({ name: "price", type: "bigint" }, "597000"), "Rp 597.000");

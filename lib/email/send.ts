@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 import { withPool } from "@/lib/db";
 import { fillPlaceholders, htmlToText, wrapEmailHtml } from "@/lib/email/html";
-import { sendFonnte } from "@/lib/whatsapp/fonnte";
+import { sendFonnte, skippedWhatsApp, whatsAppLog } from "@/lib/whatsapp/fonnte";
 
 type SendInput = {
   event: string;
@@ -44,35 +44,36 @@ export async function dispatchTemplate(input: SendInput) {
       const raw = fillPlaceholders(String(tpl.message_content), input.values);
       const subject = fillPlaceholders(String(tpl.subject ?? "BisnisLevelUp.id"), input.values);
       if (isWhatsApp(String(tpl.channel))) {
-        const message = htmlToText(raw);
-        const recipient = input.phone?.trim() || "";
-        if (!recipient) {
+        try {
+          const message = htmlToText(raw);
+          const recipient = input.phone?.trim() || "";
+          const configured = Boolean(process.env.FONNTE_TOKEN?.trim());
+          const result = !configured
+            ? skippedWhatsApp()
+            : !recipient
+              ? { ok: false, skipped: false, error: "Nomor WhatsApp kosong", response: null }
+              : await sendFonnte({ target: recipient, message, fileUrl: input.fileUrl });
+          const logged = whatsAppLog(result);
           await pool.query(
-            `INSERT INTO notification_logs (template_id, invoice_code, order_id, session_id, recipient, channel, request_payload, status, error_message)
-             VALUES ($1,$2,$3,$4,'-',$5,$6,'FAILED',$7)`,
-            [tpl.id, input.invoice ?? null, input.orderId ?? null, input.sessionId ?? null, tpl.channel, message, "Nomor WhatsApp kosong"],
+            `INSERT INTO notification_logs (template_id, invoice_code, order_id, session_id, recipient, channel, request_payload, response_payload, status, error_message, sent_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $11::varchar = 'SENT' THEN NOW() ELSE NULL END)`,
+            [
+              tpl.id,
+              input.invoice ?? null,
+              input.orderId ?? null,
+              input.sessionId ?? null,
+              recipient || "-",
+              tpl.channel,
+              message,
+              JSON.stringify(result.response ?? {}),
+              logged.status,
+              logged.error,
+              logged.status,
+            ],
           );
-          continue;
+        } catch (error) {
+          console.error("[wa]", error instanceof Error ? error.message : error);
         }
-        const result = await sendFonnte({ target: recipient, message, fileUrl: input.fileUrl });
-        const waStatus = result.ok ? "SENT" : "FAILED";
-        await pool.query(
-          `INSERT INTO notification_logs (template_id, invoice_code, order_id, session_id, recipient, channel, request_payload, response_payload, status, error_message, sent_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $11::varchar = 'SENT' THEN NOW() ELSE NULL END)`,
-          [
-            tpl.id,
-            input.invoice ?? null,
-            input.orderId ?? null,
-            input.sessionId ?? null,
-            recipient,
-            tpl.channel,
-            message,
-            JSON.stringify(result.response ?? {}),
-            waStatus,
-            result.error,
-            waStatus,
-          ],
-        );
         continue;
       }
       if (tpl.channel !== "EMAIL") continue;

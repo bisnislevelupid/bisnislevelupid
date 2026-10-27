@@ -28,6 +28,7 @@ const STATUS_TEXT: Record<string, string> = {
   INACTIVE: "Nonaktif",
   SENT: "Terkirim",
   FAILED: "Gagal",
+  SKIPPED: "Dilewati",
   NOT_STARTED: "Belum mulai",
   IN_PROGRESS: "Sedang dikerjakan",
   COMPLETED: "Selesai",
@@ -72,6 +73,7 @@ export function statusText(value: string) {
 }
 
 export function statusColor(value: string) {
+  if (value === "SKIPPED") return "#64748b";
   if (value === "PAID" || value === "ACTIVE" || value === "SENT" || value === "COMPLETED") return "#059669";
   if (value === "PENDING" || value === "HAMPIR" || value === "IN_PROGRESS") return "#d97706";
   if (value === "FAILED" || value === "EXPIRED" || value === "INACTIVE" || value === "CANCELLED" || value === "DALAM_BAHAYA" || value === "BELUM_SIAP") {

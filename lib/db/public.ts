@@ -57,7 +57,7 @@ export async function listTestimonials() {
 export async function listPaymentMethods() {
   return withPool(async (pool) => {
     const { rows } = await pool.query(
-      `SELECT id::text, code, name, logo_url, type, provider, is_redirect
+      `SELECT id::text, code, name, logo_url, type, provider, is_redirect, account_number, account_holder
        FROM payment_methods
        WHERE is_active = true
        ORDER BY CASE WHEN provider = 'Manual' OR type = 'bank_transfer' THEN 0 ELSE 1 END, sort_order, id`,
@@ -70,6 +70,8 @@ export async function listPaymentMethods() {
       type: string;
       provider: string;
       is_redirect: boolean;
+      account_number: string | null;
+      account_holder: string | null;
     }>;
   });
 }

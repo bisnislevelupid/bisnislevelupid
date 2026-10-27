@@ -49,6 +49,7 @@ JOIN (VALUES
 ON c.code = p.cat
 ON CONFLICT (code) DO NOTHING;
 
+-- Rekening dan atas nama yang sudah diisi admin tidak ditimpa (termasuk BCA_MANUAL dan MANDIRI_MANUAL).
 INSERT INTO payment_methods (code, name, logo_url, type, provider, is_active, is_redirect, sort_order, account_number, account_holder) VALUES
 ('QR_CODE', 'QRIS', 'https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_QRIS.svg', 'qr_code', 'Xendit', true, false, 1, NULL, NULL),
 ('BSI', 'BSI Virtual Account', 'https://upload.wikimedia.org/wikipedia/commons/a/a0/Bank_Syariah_Indonesia.svg', 'va', 'Xendit', true, false, 2, NULL, NULL),
@@ -71,17 +72,12 @@ INSERT INTO payment_methods (code, name, logo_url, type, provider, is_active, is
 ('MANDIRI_MANUAL', 'Mandiri (Transfer Manual)', 'https://upload.wikimedia.org/wikipedia/commons/a/ad/Bank_Mandiri_logo_2016.svg', 'bank_transfer', 'Manual', true, false, 19, '9876543210', 'PT Bisnis Level Up')
 ON CONFLICT (code) DO NOTHING;
 
-DELETE FROM payment_instructions
-WHERE payment_method_id IN (
-  SELECT id FROM payment_methods WHERE code IN (
-    'QR_CODE','GOPAY','SHOPEEPAY','DANA','LINKAJA','BCA','MANDIRI','BSI','BRI','BNI','BJB','BNC','CIMB','MUAMALAT','PERMATA','ALFAMART','INDOMARET','BCA_MANUAL','MANDIRI_MANUAL'
-  )
-);
-
-INSERT INTO payment_instructions (payment_method_id, title, content, sort_order)
-SELECT m.id, i.title, i.content, i.sort_order
-FROM payment_methods m
-JOIN (VALUES
+-- Upsert instruksi tanpa DELETE. Baris yang sudah ada (metode + urutan) diperbarui teksnya.
+-- Baris tambahan dari panel, dengan urutan lain, dibiarkan.
+WITH incoming AS (
+  SELECT m.id AS payment_method_id, i.title, i.content, i.sort_order
+  FROM payment_methods m
+  JOIN (VALUES
   ('BCA', 'Pembayaran via m-BCA', '<ol><li>Buka aplikasi BCA Mobile.</li><li>Pilih m-BCA, lalu m-Transfer.</li><li>Pilih BCA Virtual Account dan masukkan nomor {va}.</li><li>Periksa nama penerima dan nominal {nominal}.</li><li>Masukkan PIN m-BCA untuk mengirim.</li></ol>', 1),
   ('BCA', 'Pembayaran via KlikBCA', '<ol><li>Login ke KlikBCA Individual.</li><li>Pilih Transfer, lalu Transfer ke BCA Virtual Account.</li><li>Masukkan nomor {va}.</li><li>Pastikan nominal {nominal} sudah benar, lalu lanjutkan.</li><li>Masukkan respon KeyBCA dan kode token.</li></ol>', 2),
   ('BCA', 'Pembayaran via ATM BCA', '<ol><li>Masukkan kartu ATM BCA dan PIN.</li><li>Pilih Transaksi Lainnya, Transfer, lalu Ke Rekening BCA Virtual Account.</li><li>Masukkan nomor {va}.</li><li>Layar menampilkan nominal {nominal}. Konfirmasi jika nama penerima sudah benar.</li></ol>', 3),
@@ -119,7 +115,25 @@ JOIN (VALUES
   ('LINKAJA', 'Pembayaran via LinkAja', '<ol><li>Di halaman pembayaran, pilih lanjut ke LinkAja.</li><li>Aplikasi atau halaman LinkAja terbuka.</li><li>Selesaikan pembayaran sebesar {nominal}.</li></ol>', 1),
   ('BCA_MANUAL', 'Transfer manual BCA', '<ol><li>Transfer tepat {nominal}, termasuk digit unik di belakang, ke rekening BCA.</li><li>Nomor rekening {rekening}.</li><li>Atas nama {atas_nama}.</li><li>Simpan bukti transfer. Admin mencocokkan nominal unik ini.</li></ol>', 1),
   ('MANDIRI_MANUAL', 'Transfer manual Mandiri', '<ol><li>Transfer tepat {nominal}, termasuk digit unik di belakang, ke rekening Mandiri.</li><li>Nomor rekening {rekening}.</li><li>Atas nama {atas_nama}.</li><li>Simpan bukti transfer. Admin mencocokkan nominal unik ini.</li></ol>', 1)
-) AS i(code, title, content, sort_order) ON m.code = i.code;
+) AS i(code, title, content, sort_order) ON m.code = i.code
+),
+updated AS (
+  UPDATE payment_instructions AS existing
+  SET title = incoming.title,
+      content = incoming.content
+  FROM incoming
+  WHERE existing.payment_method_id = incoming.payment_method_id
+    AND existing.sort_order = incoming.sort_order
+  RETURNING existing.id
+)
+INSERT INTO payment_instructions (payment_method_id, title, content, sort_order)
+SELECT incoming.payment_method_id, incoming.title, incoming.content, incoming.sort_order
+FROM incoming
+WHERE NOT EXISTS (
+  SELECT 1 FROM payment_instructions existing
+  WHERE existing.payment_method_id = incoming.payment_method_id
+    AND existing.sort_order = incoming.sort_order
+);
 
 INSERT INTO coupon_codes (code, description, discount_type, discount_value, min_purchase, valid_from, valid_until, is_active)
 SELECT 'LEVELUP10', 'Diskon 10 persen', 'PERCENTAGE', 10, 0, NOW() - INTERVAL '1 day', NOW() + INTERVAL '365 days', true

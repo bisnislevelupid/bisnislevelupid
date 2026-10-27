@@ -3,6 +3,7 @@ import { withPool } from "@/lib/db";
 import { provisionPaidSessionsByInvoice } from "@/lib/db/orders";
 import { dispatchTemplate } from "@/lib/email/send";
 import { fillPlaceholders, rupiah } from "@/lib/email/html";
+import { paymentPlaceholderValues } from "@/lib/payment/bank-details";
 import { getReport, rememberPdf } from "@/lib/db/portal";
 import { buildReportPdf } from "@/lib/pdf/report";
 import { lookupAuditNames } from "@/lib/db/public";
@@ -31,14 +32,16 @@ export async function instructionHtml(order: {
       `SELECT title, content FROM payment_instructions WHERE payment_method_id = $1 ORDER BY sort_order, id`,
       [methodId],
     );
-    const values = {
-      va: order.va_number || "nomor VA di halaman pembayaran",
-      kode: order.payment_code || "kode bayar di halaman pembayaran",
-      rekening: order.account_number || "-",
-      atas_nama: order.account_holder || "BisnisLevelUp.id",
+    const values = paymentPlaceholderValues({
+      accountNumber: order.account_number,
+      accountHolder: order.account_holder,
+      vaNumber: order.va_number,
+      paymentCode: order.payment_code,
       nominal: rupiah(order.total_amount),
-      metode: order.method_name || "",
-    };
+      methodName: order.method_name,
+      vaFallback: "nomor VA di halaman pembayaran",
+      codeFallback: "kode bayar di halaman pembayaran",
+    });
     return rows
       .map((row) => `<h3>${row.title}</h3>${fillPlaceholders(String(row.content), values)}`)
       .join("");

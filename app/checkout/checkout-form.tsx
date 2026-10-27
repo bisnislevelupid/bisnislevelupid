@@ -9,6 +9,22 @@ type Product = {
   short_desc: string | null;
   price: string;
   is_featured: boolean;
+  type: string;
+};
+
+type Instrument = { code: string; name: string };
+
+type Profile = {
+  name: string;
+  email: string;
+  phone: string;
+  businessName: string;
+  businessField: string;
+  businessCity: string;
+  businessStartYear: string;
+  employeeRange: string;
+  monthlyRevenue: string;
+  ownerRole: string;
 };
 
 type Method = {
@@ -33,31 +49,53 @@ function rupiah(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 }
 
+function isSingleAudit(product: Product | undefined) {
+  return product?.type === "SINGLE_AUDIT" || product?.code === "audit-satu-fase";
+}
+
+function defaultMethodId(methods: Method[]) {
+  return methods.find((method) => method.provider === "Manual" || method.type === "bank_transfer")?.id ?? methods[0]?.id ?? "";
+}
+
+function assurance(method: Method | undefined) {
+  if (method?.provider === "Manual" || method?.type === "bank_transfer") {
+    return "Transfer manual ke rekening resmi. Admin menandai lunas setelah dana masuk.";
+  }
+  if (method?.provider === "Midtrans") return "Pembayaran diamankan oleh Midtrans";
+  return "Pembayaran diamankan oleh Xendit";
+}
+
 export function CheckoutForm({
   products,
   methods,
+  instruments,
+  profile = null,
   initialCode,
   restoreProduct = false,
 }: {
   products: Product[];
   methods: Method[];
+  instruments: Instrument[];
+  profile?: Profile | null;
   initialCode: string;
   restoreProduct?: boolean;
 }) {
   const router = useRouter();
+  const lockedEmail = Boolean(profile?.email);
   const [productCode, setProductCode] = useState(initialCode);
-  const [methodId, setMethodId] = useState(methods.find((m) => m.code === "QR_CODE")?.id ?? methods[0]?.id ?? "");
+  const [methodId, setMethodId] = useState(defaultMethodId(methods));
+  const [auditCode, setAuditCode] = useState("");
   const [fields, setFields] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    businessName: "",
-    businessField: "",
-    businessCity: "",
-    businessStartYear: "",
-    employeeRange: "",
-    monthlyRevenue: "",
-    ownerRole: "",
+    name: profile?.name ?? "",
+    email: profile?.email ?? "",
+    phone: profile?.phone ?? "",
+    businessName: profile?.businessName ?? "",
+    businessField: profile?.businessField ?? "",
+    businessCity: profile?.businessCity ?? "",
+    businessStartYear: profile?.businessStartYear ?? "",
+    employeeRange: profile?.employeeRange ?? "",
+    monthlyRevenue: profile?.monthlyRevenue ?? "",
+    ownerRole: profile?.ownerRole ?? "",
   });
   const [fieldError, setFieldError] = useState<Record<string, string>>({});
   const [coupon, setCoupon] = useState("");
@@ -91,6 +129,7 @@ export function CheckoutForm({
     coupon: string;
     productCode: string;
     agreed: boolean;
+    auditCode: string;
   }) {
     draftJson.current = JSON.stringify(next);
     if (draftTimer.current) clearTimeout(draftTimer.current);
@@ -107,6 +146,7 @@ export function CheckoutForm({
   }, []);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- hydrate the saved checkout draft once */
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return;
     try {
@@ -116,21 +156,25 @@ export function CheckoutForm({
         coupon?: string;
         productCode?: string;
         agreed?: boolean;
+        auditCode?: string;
       };
       const saved = { ...parsed, ...parsed.fields };
       setFields((prev) => ({
         ...prev,
-        name: saved.name ?? prev.name,
-        email: saved.email ?? prev.email,
-        phone: saved.phone ?? prev.phone,
-        businessName: saved.businessName ?? prev.businessName,
-        businessField: saved.businessField ?? prev.businessField,
-        businessCity: saved.businessCity ?? prev.businessCity,
-        businessStartYear: saved.businessStartYear ?? prev.businessStartYear,
-        employeeRange: saved.employeeRange ?? prev.employeeRange,
-        monthlyRevenue: saved.monthlyRevenue ?? prev.monthlyRevenue,
-        ownerRole: saved.ownerRole ?? prev.ownerRole,
+        name: profile?.name || saved.name || prev.name,
+        email: profile?.email || saved.email || prev.email,
+        phone: profile?.phone || saved.phone || prev.phone,
+        businessName: saved.businessName || profile?.businessName || prev.businessName,
+        businessField: saved.businessField || profile?.businessField || prev.businessField,
+        businessCity: saved.businessCity || profile?.businessCity || prev.businessCity,
+        businessStartYear: saved.businessStartYear || profile?.businessStartYear || prev.businessStartYear,
+        employeeRange: saved.employeeRange || profile?.employeeRange || prev.employeeRange,
+        monthlyRevenue: saved.monthlyRevenue || profile?.monthlyRevenue || prev.monthlyRevenue,
+        ownerRole: saved.ownerRole || profile?.ownerRole || prev.ownerRole,
       }));
+      if (saved.auditCode && instruments.some((item) => item.code === saved.auditCode)) {
+        setAuditCode(saved.auditCode);
+      }
       if (saved.methodId && methods.some((item) => String(item.id) === String(saved.methodId))) {
         setMethodId(String(saved.methodId));
       }
@@ -143,24 +187,26 @@ export function CheckoutForm({
       clearDraft();
     }
     // Muat sekali. Jangan tulis ulang di sini, supaya draft tidak tertimpa nilai kosong.
+    /* eslint-enable react-hooks/set-state-in-effect */
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const product = products.find((item) => item.code === productCode) ?? products[0];
+  const selectedMethod = methods.find((item) => String(item.id) === String(methodId));
   const subtotal = Number(product?.price ?? 0);
   const total = Math.max(0, subtotal - discount);
 
   function setField(name: keyof typeof fields, value: string) {
     setFields((prev) => {
       const next = { ...prev, [name]: value };
-      writeDraft({ fields: next, methodId, coupon, productCode, agreed });
+      writeDraft({ fields: next, methodId, coupon, productCode, agreed, auditCode });
       return next;
     });
   }
 
   function chooseMethod(id: string) {
     setMethodId(id);
-    writeDraft({ fields, methodId: id, coupon, productCode, agreed });
+    writeDraft({ fields, methodId: id, coupon, productCode, agreed, auditCode });
   }
 
   function chooseProduct(code: string) {
@@ -168,7 +214,7 @@ export function CheckoutForm({
     setApplied("");
     setDiscount(0);
     setCouponNote("");
-    writeDraft({ fields, methodId, coupon, productCode: code, agreed });
+    writeDraft({ fields, methodId, coupon, productCode: code, agreed, auditCode });
     window.history.replaceState(null, "", `/checkout?product=${code}`);
   }
 
@@ -184,6 +230,9 @@ export function CheckoutForm({
     if (!fields.employeeRange) next.employeeRange = "Pilih jumlah tim";
     if (!fields.monthlyRevenue) next.monthlyRevenue = "Pilih kisaran omzet";
     if (!fields.ownerRole) next.ownerRole = "Pilih peran Anda";
+    if (isSingleAudit(product) && !instruments.some((item) => item.code === auditCode)) {
+      next.auditCode = "Pilih instrumen audit";
+    }
     setFieldError(next);
     return Object.keys(next).length === 0;
   }
@@ -244,6 +293,7 @@ export function CheckoutForm({
         ownerRole: fields.ownerRole,
         paymentMethodId: methodId,
         coupon: applied || undefined,
+        auditCode: isSingleAudit(product) ? auditCode : undefined,
         agree: agreed,
       }),
     });
@@ -316,7 +366,16 @@ export function CheckoutForm({
             </h3>
             <div className="checkout-pair" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <Field label="Nama Lengkap *" name="name" value={fields.name} error={fieldError.name} onChange={(v) => setField("name", v)} pattern={patterns.name.source} />
-              <Field label="Email Aktif (untuk Laporan PDF) *" name="email" type="email" value={fields.email} error={fieldError.email} onChange={(v) => setField("email", v)} />
+              <Field
+                label="Email Aktif (untuk Laporan PDF) *"
+                name="email"
+                type="email"
+                value={fields.email}
+                error={fieldError.email}
+                readOnly={lockedEmail}
+                hint={lockedEmail ? "Email dikunci ke akun yang sedang masuk, supaya laporan tidak salah kirim." : undefined}
+                onChange={(v) => setField("email", v)}
+              />
               <Field label="Nomor WhatsApp *" name="phone" value={fields.phone} error={fieldError.phone} onChange={(v) => setField("phone", v)} pattern={patterns.phone.source} />
               <Field label="Nama Bisnis / Brand *" name="businessName" value={fields.businessName} error={fieldError.businessName} onChange={(v) => setField("businessName", v)} />
             </div>
@@ -330,9 +389,26 @@ export function CheckoutForm({
                 style={{ ...input, marginTop: 6 }}
               >
                 <option value="">Pilih bidang</option>
-                {["Ritel & Grosir / Minimarket", "F&B / Kuliner", "Jasa Profesional", "Manufaktur", "Digital / Agensi"].map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
+                {(
+                  [
+                    "Ritel & Grosir / Minimarket",
+                    "F&B / Kuliner",
+                    "Jasa Profesional",
+                    "Manufaktur",
+                    "Digital / Agensi",
+                  ] as string[]
+                )
+                  .concat(
+                    fields.businessField &&
+                      !["Ritel & Grosir / Minimarket", "F&B / Kuliner", "Jasa Profesional", "Manufaktur", "Digital / Agensi"].includes(
+                        fields.businessField,
+                      )
+                      ? [fields.businessField]
+                      : [],
+                  )
+                  .map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
               </select>
               {fieldError.businessField ? <span style={{ color: "#dc2626", fontWeight: 500 }}>{fieldError.businessField}</span> : null}
             </label>
@@ -430,7 +506,38 @@ export function CheckoutForm({
                   <strong>{rupiah(Number(item.price))}</strong>
                 </label>
               );
-            })}
+              })}
+            {isSingleAudit(product) ? (
+              <label style={{ display: "block", marginTop: 14, fontSize: "0.88rem", fontWeight: 600 }}>
+                Instrumen audit *
+                <select
+                  name="auditCode"
+                  required
+                  value={auditCode}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setAuditCode(next);
+                    setFieldError((prev) => ({ ...prev, auditCode: "" }));
+                    writeDraft({ fields, methodId, coupon, productCode, agreed, auditCode: next });
+                  }}
+                  style={{ ...input, marginTop: 6, borderColor: fieldError.auditCode ? "#dc2626" : "#e2e8f0" }}
+                >
+                  <option value="">Pilih transisi fase</option>
+                  {instruments.map((item) => (
+                    <option key={item.code} value={item.code}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+                {fieldError.auditCode ? (
+                  <span style={{ display: "block", color: "#dc2626", fontWeight: 500, marginTop: 4 }}>{fieldError.auditCode}</span>
+                ) : (
+                  <span style={{ display: "block", color: "#64748b", fontWeight: 500, marginTop: 6 }}>
+                    Wajib dipilih. Sesi tes untuk instrumen ini dibuat saat pesanan lunas.
+                  </span>
+                )}
+              </label>
+            ) : null}
           </section>
 
           <section style={card}>
@@ -443,7 +550,7 @@ export function CheckoutForm({
                   onChange={(e) => {
                     const next = e.target.value.toUpperCase();
                     setCoupon(next);
-                    writeDraft({ fields, methodId, coupon: next, productCode, agreed });
+                    writeDraft({ fields, methodId, coupon: next, productCode, agreed, auditCode });
                   }}
                   placeholder="LEVELUP10"
                   style={{ ...input, flex: 1 }}
@@ -462,7 +569,11 @@ export function CheckoutForm({
             ) : null}
             <Row label="Subtotal Produk" value={rupiah(subtotal)} />
             {discount ? <Row label="Diskon" value={`- ${rupiah(discount)}`} green /> : null}
-            <Row label="Biaya Layanan Payment Gateway" value="GRATIS" green />
+            <Row
+              label={selectedMethod?.provider === "Manual" ? "Biaya admin transfer" : "Biaya layanan payment gateway"}
+              value="GRATIS"
+              green
+            />
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, fontSize: "1.15rem" }}>
               <strong>Total Pembayaran</strong>
               <strong style={{ color: "#059669" }}>{rupiah(total)}</strong>
@@ -476,7 +587,7 @@ export function CheckoutForm({
                 onChange={(event) => {
                   const next = event.target.checked;
                   setAgreed(next);
-                  writeDraft({ fields, methodId, coupon, productCode, agreed: next });
+                  writeDraft({ fields, methodId, coupon, productCode, agreed: next, auditCode });
                 }}
               />
               Saya menyetujui ketentuan layanan. Hasil audit akan dikirim ke email terdaftar.
@@ -490,7 +601,7 @@ export function CheckoutForm({
               {phase === "redirect" ? "Mengalihkan ke pembayaran..." : phase === "create" ? "Membuat pesanan..." : `Bayar Sekarang (${rupiah(total)}) →`}
             </button>
             <p style={{ textAlign: "center", color: "#94a3b8", fontSize: "0.75rem", marginTop: 10 }}>
-              Garansi 100% uang kembali · Xendit secured
+              Garansi 100% uang kembali · {assurance(selectedMethod)}
             </p>
           </section>
         </div>
@@ -507,6 +618,8 @@ function Field({
   value,
   error,
   pattern,
+  readOnly = false,
+  hint,
   onChange,
 }: {
   label: string;
@@ -515,6 +628,8 @@ function Field({
   value: string;
   error?: string;
   pattern?: string;
+  readOnly?: boolean;
+  hint?: string;
   onChange: (value: string) => void;
 }) {
   return (
@@ -524,10 +639,22 @@ function Field({
         name={name}
         type={type}
         required
+        pattern={pattern}
+        readOnly={readOnly}
+        aria-readonly={readOnly || undefined}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{ ...input, marginTop: 6, borderColor: error ? "#dc2626" : "#e2e8f0" }}
+        onChange={(e) => {
+          if (!readOnly) onChange(e.target.value);
+        }}
+        style={{
+          ...input,
+          marginTop: 6,
+          borderColor: error ? "#dc2626" : "#e2e8f0",
+          background: readOnly ? "#f8fafc" : "#fff",
+          color: readOnly ? "#334155" : "#0f172a",
+        }}
       />
+      {hint ? <span style={{ display: "block", color: "#64748b", fontWeight: 500, marginTop: 4 }}>{hint}</span> : null}
       {error ? <span style={{ display: "block", color: "#dc2626", fontWeight: 500, marginTop: 4 }}>{error}</span> : null}
     </label>
   );
@@ -548,12 +675,13 @@ function SelectField({
   options: string[];
   onChange: (value: string) => void;
 }) {
+  const choices = value && !options.includes(value) ? [value, ...options] : options;
   return (
     <label style={{ fontSize: "0.88rem", fontWeight: 600 }}>
       {label}
       <select name={name} required value={value} onChange={(e) => onChange(e.target.value)} style={{ ...input, marginTop: 6 }}>
         <option value="">Pilih</option>
-        {options.map((item) => (
+        {choices.map((item) => (
           <option key={item}>{item}</option>
         ))}
       </select>

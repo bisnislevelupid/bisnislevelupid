@@ -1,16 +1,17 @@
 import { put } from "@vercel/blob";
 import { withPool } from "@/lib/db";
+import { provisionPaidSessionsByInvoice } from "@/lib/db/orders";
 import { dispatchTemplate } from "@/lib/email/send";
 import { fillPlaceholders, rupiah } from "@/lib/email/html";
 import { getReport, rememberPdf } from "@/lib/db/portal";
 import { buildReportPdf } from "@/lib/pdf/report";
-import { statusLabel } from "@/lib/portal/labels";
+import { lookupAuditNames } from "@/lib/db/public";
+import { codesFromUnlocked, formatWib, statusLabel } from "@/lib/portal/labels";
 
 const CHECKOUT_TYPES = new Set(["bank_transfer", "va", "retail_outlet"]);
 
 function formatWhen(value: string | Date | null) {
-  if (!value) return "-";
-  return new Date(value).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
+  return formatWib(value) || "-";
 }
 
 export async function instructionHtml(order: {
@@ -49,32 +50,40 @@ async function loadOrder(invoice: string) {
       `SELECT o.id::text, o.invoice_code, o.customer_name, o.customer_email, o.customer_phone, o.total_amount::text,
               o.va_number, o.payment_code, o.expired_at, o.payment_method_id::text,
               m.name AS method_name, m.type AS method_type, m.account_number, m.account_holder,
-              (SELECT product_name FROM order_items WHERE order_id = o.id ORDER BY id LIMIT 1) AS product_name
+              (SELECT product_name FROM order_items WHERE order_id = o.id ORDER BY id LIMIT 1) AS product_name,
+              (SELECT string_agg(audit_ids_unlocked, ',') FROM order_items WHERE order_id = o.id) AS audit_ids
        FROM orders o
        LEFT JOIN payment_methods m ON m.id = o.payment_method_id
        WHERE o.invoice_code = $1`,
       [invoice],
     );
-    return rows[0] as
-      | {
-          id: string;
-          invoice_code: string;
-          customer_name: string | null;
-          customer_email: string | null;
-          customer_phone: string | null;
-          total_amount: string;
-          va_number: string | null;
-          payment_code: string | null;
-          expired_at: string | null;
-          payment_method_id: string;
-          method_name: string | null;
-          method_type: string | null;
-          account_number: string | null;
-          account_holder: string | null;
-          product_name: string | null;
-        }
-      | undefined;
+    if (!rows[0]) return undefined;
+    const order = rows[0] as {
+      id: string;
+      invoice_code: string;
+      customer_name: string | null;
+      customer_email: string | null;
+      customer_phone: string | null;
+      total_amount: string;
+      va_number: string | null;
+      payment_code: string | null;
+      expired_at: string | null;
+      payment_method_id: string;
+      method_name: string | null;
+      method_type: string | null;
+      account_number: string | null;
+      account_holder: string | null;
+      product_name: string | null;
+      audit_ids: string | null;
+    };
+    const names = await lookupAuditNames(pool, codesFromUnlocked(order.audit_ids));
+    return { ...order, audit_label: names.join(", ") };
   });
+}
+
+function productLine(name: string | null, audit: string | undefined) {
+  if (name && audit) return `${name} — ${audit}`;
+  return name || audit || "";
 }
 
 export async function notifyOrderCreated(invoice: string, origin: string) {
@@ -90,7 +99,8 @@ export async function notifyOrderCreated(invoice: string, origin: string) {
     values: {
       nama: order.customer_name ?? "",
       invoice: order.invoice_code,
-      produk: order.product_name ?? "",
+      produk: productLine(order.product_name, order.audit_label),
+      instrumen: order.audit_label || "-",
       nominal: rupiah(order.total_amount),
       metode: order.method_name ?? "",
       batas: formatWhen(order.expired_at),
@@ -102,6 +112,7 @@ export async function notifyOrderCreated(invoice: string, origin: string) {
 }
 
 export async function notifyOrderPaid(invoice: string, origin: string) {
+  await provisionPaidSessionsByInvoice(invoice);
   const order = await loadOrder(invoice);
   if (!order) return;
   await dispatchTemplate({
@@ -113,7 +124,8 @@ export async function notifyOrderPaid(invoice: string, origin: string) {
     values: {
       nama: order.customer_name ?? "",
       invoice: order.invoice_code,
-      produk: order.product_name ?? "",
+      produk: productLine(order.product_name, order.audit_label),
+      instrumen: order.audit_label || "-",
       nominal: rupiah(order.total_amount),
       metode: order.method_name ?? "",
       dashboard_url: `${origin}/akun`,

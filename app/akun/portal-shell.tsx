@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Compass, FileText, Menu, Play, Receipt, Sparkles, X } from "lucide-react";
+import { Compass, FileText, Menu, Play, Receipt, Sparkles, TrendingUp, X } from "lucide-react";
+import { Wordmark } from "@/components/shared/wordmark";
 
 const items = [
   { href: "/akun", label: "Ringkasan Akun", icon: Compass },
@@ -15,11 +16,15 @@ const items = [
 
 export function PortalShell({
   name,
+  email,
   business,
+  canAudit,
   children,
 }: {
   name: string;
-  business: string;
+  email: string;
+  business: string | null;
+  canAudit: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -31,8 +36,23 @@ export function PortalShell({
       {open ? <button className="portal-overlay" aria-label="Tutup menu" onClick={() => setOpen(false)} /> : null}
       <aside className={`portal-sidebar${open ? " open" : ""}`}>
         <div style={{ padding: "20px 18px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between" }}>
-          <Link href="/" style={{ fontWeight: 800, color: "#059669" }}>
-            ScaleUpBisnis
+          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              aria-hidden="true"
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                background: "linear-gradient(135deg,#10b981,#059669)",
+                color: "#fff",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <TrendingUp size={16} />
+            </span>
+            <Wordmark size="1.05rem" />
           </Link>
           <button className="portal-menu" onClick={() => setOpen(false)} aria-label="Tutup" style={{ border: 0, background: "transparent" }}>
             <X size={18} />
@@ -40,8 +60,9 @@ export function PortalShell({
         </div>
         <div style={{ margin: 16, padding: 14, borderRadius: 16, background: "#ecfdf5" }}>
           <div style={{ fontSize: 11, fontWeight: 800, color: "#059669" }}>AKUN TERDAFTAR</div>
-          <div style={{ fontWeight: 800, marginTop: 4 }}>{name}</div>
-          <div style={{ color: "#64748b", fontSize: 13 }}>{business}</div>
+          <div style={{ fontWeight: 800, marginTop: 4 }}>{name.trim() || "Peserta"}</div>
+          <div style={{ color: "#64748b", fontSize: 13 }}>{business?.trim() || "Nama bisnis belum diisi"}</div>
+          <div style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}>{email}</div>
         </div>
         <nav style={{ display: "grid", gap: 4, padding: "0 12px" }}>
           {items.map((item) => {
@@ -83,9 +104,15 @@ export function PortalShell({
             <Menu size={18} />
           </button>
           <div style={{ fontWeight: 800 }}>Portal Pengusaha</div>
-          <Link href="/akun/audit" style={{ background: "#059669", color: "#fff", borderRadius: 999, padding: "10px 14px", fontWeight: 800, fontSize: 14 }}>
-            Lanjut Pengisian
-          </Link>
+          {canAudit ? (
+            <Link href="/akun/audit" style={{ background: "#059669", color: "#fff", borderRadius: 999, padding: "10px 14px", fontWeight: 800, fontSize: 14 }}>
+              Lanjut pengisian
+            </Link>
+          ) : (
+            <Link href="/#pricing-section" style={{ background: "#059669", color: "#fff", borderRadius: 999, padding: "10px 14px", fontWeight: 800, fontSize: 14 }}>
+              Beli paket
+            </Link>
+          )}
         </header>
         <div className="portal-content">{children}</div>
       </div>

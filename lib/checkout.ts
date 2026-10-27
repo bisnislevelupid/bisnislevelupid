@@ -1,8 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { withPool } from "@/lib/db";
+import { provisionPaidSessions } from "@/lib/db/orders";
+import { lookupAuditNames } from "@/lib/db/public";
 import { fillPlaceholders, rupiah, sanitizeEmailHtml } from "@/lib/email/html";
 import { createXenditPayment } from "@/lib/payment/xendit";
 import { createGopaySnap } from "@/lib/payment/midtrans";
+import { codesFromUnlocked } from "@/lib/portal/labels";
 
 function invoiceCode() {
   return `INV-${randomBytes(9).toString("base64url")}`;
@@ -74,6 +77,8 @@ export async function placeOrder(input: {
   paymentMethodId: string;
   coupon?: string;
   origin: string;
+  auditCode?: string;
+  customerId?: string;
 }) {
   return withPool(async (pool) => {
     const client = await pool.connect();
@@ -123,20 +128,51 @@ export async function placeOrder(input: {
       const total = Math.max(0, subtotal - discount + fee);
       const invoice = invoiceCode();
 
-      const existing = await client.query(`SELECT id FROM customers WHERE email = $1`, [input.email.toLowerCase()]);
-      let customerId = existing.rows[0]?.id as string | undefined;
-      if (!customerId) {
-        const created = await client.query(
-          `INSERT INTO customers (name, email, phone, business_name, business_field, business_city, business_start_year, employee_range, monthly_revenue, owner_role)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-          [input.name, input.email.toLowerCase(), input.phone, input.businessName, input.businessField, input.businessCity, input.businessStartYear, input.employeeRange, input.monthlyRevenue, input.ownerRole],
+      const singleAudit = product.rows[0].type === "SINGLE_AUDIT" || input.productCode === "audit-satu-fase";
+      let unlocked = product.rows[0].includes_audit_ids as string | null;
+      if (singleAudit) {
+        const choice = input.auditCode?.trim() ?? "";
+        if (!choice) throw new Error("Pilih instrumen audit");
+        const audit = await client.query(
+          `SELECT code FROM audit_transitions
+           WHERE code = $1 AND is_active = true
+             AND code IN ('audit_1_2', 'audit_2_3', 'audit_3_4', 'audit_4_5')`,
+          [choice],
         );
-        customerId = created.rows[0].id;
-      } else {
+        if (!audit.rows[0]) throw new Error("Instrumen audit tidak valid");
+        unlocked = String(audit.rows[0].code);
+      }
+
+      let customerId = input.customerId;
+      let orderEmail = input.email.toLowerCase();
+      if (customerId) {
+        const account = await client.query(
+          `SELECT id, email FROM customers WHERE id = $1 AND deleted_at IS NULL AND status = 'ACTIVE'`,
+          [customerId],
+        );
+        if (!account.rows[0]) throw new Error("Akun tidak ditemukan");
+        customerId = account.rows[0].id as string;
+        orderEmail = String(account.rows[0].email).toLowerCase();
         await client.query(
           `UPDATE customers SET name=$1, phone=$2, business_name=$3, business_field=$4, business_city=$5, business_start_year=$6, employee_range=$7, monthly_revenue=$8, owner_role=$9, updated_at=NOW() WHERE id=$10`,
           [input.name, input.phone, input.businessName, input.businessField, input.businessCity, input.businessStartYear, input.employeeRange, input.monthlyRevenue, input.ownerRole, customerId],
         );
+      } else {
+        const existing = await client.query(`SELECT id FROM customers WHERE email = $1`, [orderEmail]);
+        customerId = existing.rows[0]?.id as string | undefined;
+        if (!customerId) {
+          const created = await client.query(
+            `INSERT INTO customers (name, email, phone, business_name, business_field, business_city, business_start_year, employee_range, monthly_revenue, owner_role)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+            [input.name, orderEmail, input.phone, input.businessName, input.businessField, input.businessCity, input.businessStartYear, input.employeeRange, input.monthlyRevenue, input.ownerRole],
+          );
+          customerId = created.rows[0].id as string;
+        } else {
+          await client.query(
+            `UPDATE customers SET name=$1, phone=$2, business_name=$3, business_field=$4, business_city=$5, business_start_year=$6, employee_range=$7, monthly_revenue=$8, owner_role=$9, updated_at=NOW() WHERE id=$10`,
+            [input.name, input.phone, input.businessName, input.businessField, input.businessCity, input.businessStartYear, input.employeeRange, input.monthlyRevenue, input.ownerRole, customerId],
+          );
+        }
       }
 
       let uniqueAmount: number | null = null;
@@ -165,7 +201,7 @@ export async function placeOrder(input: {
           uniqueAmount,
           pm.code,
           input.name,
-          input.email,
+          orderEmail,
           input.phone,
         ],
       );
@@ -180,7 +216,7 @@ export async function placeOrder(input: {
           product.rows[0].type,
           subtotal,
           subtotal,
-          product.rows[0].includes_audit_ids,
+          unlocked,
         ],
       );
       if (couponId) {
@@ -268,6 +304,16 @@ export async function getOrderPublic(invoice: string) {
     );
     if (!rows[0]) return null;
     const order = rows[0];
+    const items = await pool.query(
+      `SELECT product_name, audit_ids_unlocked
+       FROM order_items WHERE order_id = (SELECT id FROM orders WHERE invoice_code = $1)
+       ORDER BY id`,
+      [invoice],
+    );
+    const codes = codesFromUnlocked(
+      items.rows.map((item) => String(item.audit_ids_unlocked ?? "")).join(","),
+    );
+    const auditNames = await lookupAuditNames(pool, codes);
     const instructions = await pool.query(
       `SELECT title, content FROM payment_instructions WHERE payment_method_id = (
          SELECT payment_method_id FROM orders WHERE invoice_code = $1
@@ -284,6 +330,8 @@ export async function getOrderPublic(invoice: string) {
     };
     return {
       ...order,
+      product_name: items.rows.map((item) => String(item.product_name ?? "")).filter(Boolean).join(", "),
+      audit_label: auditNames.join(", "),
       instructions: instructions.rows.map((item) => ({
         title: item.title,
         content: sanitizeEmailHtml(fillPlaceholders(String(item.content), values)),
@@ -294,18 +342,32 @@ export async function getOrderPublic(invoice: string) {
 
 export async function markPaid(invoice: string, source: string, payload: unknown) {
   return withPool(async (pool) => {
-    const current = await pool.query(
-      `UPDATE orders SET status='PAID', paid_at=COALESCE(paid_at, NOW()), updated_at=NOW()
-       WHERE invoice_code=$1 AND status='PENDING' RETURNING id, customer_name, customer_email, customer_phone, total_amount`,
-      [invoice],
-    );
-    const order = current.rows[0];
-    if (!order) return null;
-    await pool.query(
-      `INSERT INTO payment_logs (invoice_code, order_id, endpoint, type, request_payload, response_payload, http_status)
-       VALUES ($1,$2,$3,'WEBHOOK',$4,'{"ok":true}',200)`,
-      [invoice, order.id, source, JSON.stringify(payload)],
-    );
-    return order;
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const current = await client.query(
+        `UPDATE orders SET status='PAID', paid_at=COALESCE(paid_at, NOW()), updated_at=NOW()
+         WHERE invoice_code=$1 AND status='PENDING' RETURNING id, customer_name, customer_email, customer_phone, total_amount`,
+        [invoice],
+      );
+      const order = current.rows[0];
+      if (!order) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+      await client.query(
+        `INSERT INTO payment_logs (invoice_code, order_id, endpoint, type, request_payload, response_payload, http_status)
+         VALUES ($1,$2,$3,'WEBHOOK',$4,'{"ok":true}',200)`,
+        [invoice, order.id, source, JSON.stringify(payload)],
+      );
+      await provisionPaidSessions(client, invoice);
+      await client.query("COMMIT");
+      return order;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   });
 }

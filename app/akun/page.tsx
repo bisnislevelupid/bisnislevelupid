@@ -19,6 +19,7 @@ export default async function AkunHome() {
   const latest = reports[0] ? await getReport(customerId, reports[0].session_id) : null;
   const upsells = suggestUpsells(latest, catalog, owned.map((item) => item.code));
   const paid = orders.filter((order) => order.status === "PAID").length;
+  const canAudit = paid > 0 || owned.some((item) => item.session);
 
   return (
     <div style={{ display: "grid", gap: 18 }}>
@@ -27,11 +28,17 @@ export default async function AkunHome() {
         <h1 style={{ fontSize: "clamp(1.4rem, 4vw, 2rem)", margin: "8px 0" }}>Selamat datang, {session?.name}</h1>
         <p style={{ opacity: 0.9, marginBottom: 16 }}>{paid} pesanan lunas · {reports.length} laporan selesai</p>
         <div className="hero-actions" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <Link href="/akun/audit" style={{ background: "#fff", color: "#047857", borderRadius: 999, padding: "12px 16px", fontWeight: 800 }}>
-            Mulai / lanjutkan audit
-          </Link>
+          {canAudit ? (
+            <Link href="/akun/audit" style={{ background: "#fff", color: "#047857", borderRadius: 999, padding: "12px 16px", fontWeight: 800 }}>
+              Mulai / lanjutkan audit
+            </Link>
+          ) : (
+            <Link href="/#pricing-section" style={{ background: "#fff", color: "#047857", borderRadius: 999, padding: "12px 16px", fontWeight: 800 }}>
+              Beli paket audit
+            </Link>
+          )}
           <Link href="/akun/layanan" style={{ border: "1px solid rgba(255,255,255,.5)", borderRadius: 999, padding: "12px 16px", fontWeight: 800 }}>
-            Beli layanan lain
+            {canAudit ? "Beli layanan lain" : "Lihat katalog"}
           </Link>
         </div>
       </section>
@@ -40,7 +47,7 @@ export default async function AkunHome() {
         <h2 style={{ marginTop: 0 }}>Paket audit Anda</h2>
         {owned.length === 0 ? (
           <p style={{ color: "#64748b" }}>
-            Belum ada instrumen yang lunas. <Link href="/checkout">Beli paket audit</Link>
+            Belum ada instrumen yang lunas. <Link href="/#pricing-section">Beli paket audit</Link>
           </p>
         ) : (
           <div style={{ display: "grid", gap: 12 }}>
@@ -51,7 +58,7 @@ export default async function AkunHome() {
                   <div style={{ color: "#64748b", fontSize: 14 }}>
                     {item.session?.status === "COMPLETED"
                       ? "Selesai"
-                      : item.session
+                      : item.session?.status === "IN_PROGRESS"
                         ? `Berjalan · ${item.session.answered}/${item.session.total} butir`
                         : "Belum mulai"}
                   </div>

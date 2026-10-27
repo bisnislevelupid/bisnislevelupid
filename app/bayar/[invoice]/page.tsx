@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getOrderPublic } from "@/lib/checkout";
 import { snapScriptUrl } from "@/lib/payment/midtrans";
-import { Navbar } from "@/components/landing/navbar";
+import { SiteHeader } from "@/components/landing/site-header";
 import { PayView } from "./pay-view";
 import "../../prototype.css";
 
@@ -15,7 +15,7 @@ export default async function BayarPage({
   if (!order) notFound();
   return (
     <>
-      <Navbar />
+      <SiteHeader />
       <PayView
         initial={order}
         clientKey={process.env.MIDTRANS_CLIENT_KEY ?? ""}

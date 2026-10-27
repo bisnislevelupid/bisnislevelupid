@@ -18,14 +18,17 @@ export async function POST(
 
   const saved = await withPool(async (pool) => {
     const { rows } = await pool.query(
-      `SELECT o.id, m.type, m.provider
+      `SELECT o.id, o.status, m.type, m.provider
        FROM orders o
        LEFT JOIN payment_methods m ON m.id = o.payment_method_id
        WHERE o.invoice_code = $1`,
       [invoice],
     );
-    const order = rows[0] as { id: string; type: string | null; provider: string | null } | undefined;
+    const order = rows[0] as { id: string; status: string; type: string | null; provider: string | null } | undefined;
     if (!order) return { error: "Pesanan tidak ditemukan", status: 404 as const };
+    if (order.status !== "PENDING") {
+      return { error: "Bukti hanya bisa dikirim selama pesanan masih menunggu pembayaran", status: 400 as const };
+    }
     if (order.provider !== "Manual" || order.type !== "bank_transfer") {
       return { error: "Bukti transfer hanya untuk pembayaran rekening manual", status: 400 as const };
     }
@@ -34,10 +37,16 @@ export async function POST(
       access: "public",
       contentType: file.type,
     });
-    await pool.query(
-      `UPDATE orders SET transfer_proof_url = $2, updated_at = NOW() WHERE invoice_code = $1`,
+    const updated = await pool.query(
+      `UPDATE orders
+       SET transfer_proof_url = $2, updated_at = NOW()
+       WHERE invoice_code = $1 AND status = 'PENDING'
+       RETURNING status`,
       [invoice, blob.url],
     );
+    if (!updated.rows[0] || updated.rows[0].status !== "PENDING") {
+      return { error: "Status pesanan berubah. Muat ulang halaman.", status: 409 as const };
+    }
     return { url: blob.url };
   });
 

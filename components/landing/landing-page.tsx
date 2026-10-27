@@ -192,7 +192,7 @@ export function LandingPage() {
               {/* Main Green CTA Button */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '32px' }}>
                 <a
-                  href="/checkout?product=audit-lengkap"
+                  href="#pricing-section"
                   className="btn btn-primary"
                   style={{
                     padding: '14px 28px',
@@ -204,17 +204,6 @@ export function LandingPage() {
                 >
                   Temukan Fase Bisnisku
                   <ArrowRight size={18} />
-                </a>
-                <a
-                  href="/checkout?product=audit-satu-fase"
-                  className="btn btn-outline"
-                  style={{
-                    padding: '14px 24px',
-                    fontSize: '0.95rem',
-                    borderRadius: '999px'
-                  }}
-                >
-                  Coba Simulasi Tes
                 </a>
               </div>
 
@@ -1129,7 +1118,7 @@ export function LandingPage() {
       </section>
 
       {/* 10. PILIH PAKET AUDIT (Pricing Cards: Rp 197.000 vs Rp 597.000 from Attachment) */}
-      <section id="pricing-section" style={{ padding: '90px 0', background: '#ffffff' }}>
+      <section id="pricing-section" style={{ padding: '90px 0', background: '#ffffff', scrollMarginTop: 88 }}>
         <div className="container" style={{ maxWidth: '880px' }}>
           <div style={{ textAlign: 'center', marginBottom: '48px' }}>
             <span className="section-tag">PILIH PAKET AUDIT</span>

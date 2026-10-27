@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import Link from "next/link";
+import { formatWib } from "@/lib/portal/labels";
 
 type Order = {
   invoice_code: string;
@@ -23,6 +24,8 @@ type Order = {
   customer_name?: string | null;
   expired_at: string | null;
   transfer_proof_url?: string | null;
+  product_name?: string | null;
+  audit_label?: string | null;
   instructions: Array<{ title: string; content: string }>;
 };
 
@@ -153,9 +156,13 @@ export function PayView({
 
   const steps = stepsFor(order);
   const paid = order.status === "PAID";
-  const expiry = order.expired_at
-    ? new Date(order.expired_at).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })
-    : null;
+  const awaitingReview = !paid && Boolean(order.transfer_proof_url);
+  const expiry = formatWib(order.expired_at);
+  const badge = paid
+    ? { label: "LUNAS", background: "#ecfdf5", color: "#047857" }
+    : awaitingReview
+      ? { label: "Menunggu verifikasi", background: "#fff7ed", color: "#c2410c" }
+      : { label: order.status, background: "#fff7ed", color: "#c2410c" };
 
   return (
     <div style={{ background: "#f8fafc", minHeight: "100vh", padding: "28px 16px 64px" }}>
@@ -167,6 +174,8 @@ export function PayView({
           <div>
             <p style={{ color: "#64748b", fontSize: "0.85rem" }}>Invoice {order.invoice_code}</p>
             <h1 style={{ fontSize: "1.8rem", fontWeight: 800, marginTop: 4 }}>Selesaikan pembayaran</h1>
+            {order.product_name ? <p style={{ color: "#0f172a", marginTop: 8, fontWeight: 700 }}>{order.product_name}</p> : null}
+            {order.audit_label ? <p style={{ color: "#047857", marginTop: 4 }}>Instrumen: {order.audit_label}</p> : null}
             <p style={{ color: "#475569", marginTop: 6 }}>
               {order.customer_name ? `${order.customer_name}, ` : ""}
               transfer atau scan sesuai detail di bawah. Jangan ubah nominal.
@@ -174,15 +183,15 @@ export function PayView({
           </div>
           <span
             style={{
-              background: paid ? "#ecfdf5" : "#fff7ed",
-              color: paid ? "#047857" : "#c2410c",
+              background: badge.background,
+              color: badge.color,
               borderRadius: 999,
               padding: "6px 12px",
               fontWeight: 800,
               fontSize: "0.8rem",
             }}
           >
-            {paid ? "LUNAS" : order.status}
+            {badge.label}
           </span>
         </div>
 
@@ -205,11 +214,20 @@ export function PayView({
             {order.provider === "Manual" && order.account_number ? (
               <>
                 <CopyRow label={`Rekening ${order.account_holder ?? ""}`} value={order.account_number} copyValue={order.account_number} mono />
-                <ProofUpload invoice={order.invoice_code} current={order.transfer_proof_url ?? null} />
+                <ProofUpload
+                  invoice={order.invoice_code}
+                  current={order.transfer_proof_url ?? null}
+                  pendingOrder={order.status === "PENDING"}
+                  onSaved={(url) => setOrder((prev) => ({ ...prev, transfer_proof_url: url }))}
+                />
               </>
             ) : null}
             <Countdown expiredAt={order.expired_at} now={now} paid={paid} />
-            {expiry ? <p style={{ marginTop: 8, fontSize: "0.82rem", color: "#64748b" }}>Batas bayar {expiry}</p> : null}
+            {expiry ? (
+              <p style={{ marginTop: 8, fontSize: "0.82rem", color: "#64748b" }}>
+                Batas bayar: <time dateTime={order.expired_at ?? undefined}>{expiry}</time>
+              </p>
+            ) : null}
 
             {order.qr_string ? (
               <div style={{ marginTop: 18, display: "flex", flexDirection: "column", alignItems: "center", background: "#fff", border: "1px dashed #a7f3d0", borderRadius: 16, padding: 16 }}>
@@ -265,12 +283,23 @@ export function PayView({
   );
 }
 
-function ProofUpload({ invoice, current }: { invoice: string; current: string | null }) {
+function ProofUpload({
+  invoice,
+  current,
+  pendingOrder,
+  onSaved,
+}: {
+  invoice: string;
+  current: string | null;
+  pendingOrder: boolean;
+  onSaved: (url: string) => void;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [saved, setSaved] = useState(current);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const received = Boolean(saved) && pendingOrder;
 
   function choose(next: File | null) {
     setError("");
@@ -295,6 +324,7 @@ function ProofUpload({ invoice, current }: { invoice: string; current: string | 
       return;
     }
     setSaved(json.data.url);
+    onSaved(json.data.url);
     choose(null);
   }
 
@@ -309,6 +339,11 @@ function ProofUpload({ invoice, current }: { invoice: string; current: string | 
       {shown ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={shown} alt="Pratinjau bukti transfer" style={{ width: "100%", maxHeight: 280, objectFit: "contain", borderRadius: 12, background: "#f8fafc" }} />
+      ) : null}
+      {received ? (
+        <p role="status" style={{ marginTop: 12, background: "#fff7ed", color: "#9a3412", borderRadius: 12, padding: "10px 12px", fontWeight: 700, lineHeight: 1.45 }}>
+          Bukti transfer diterima, menunggu verifikasi admin (maks 1x24 jam)
+        </p>
       ) : null}
       <label style={{ display: "inline-flex", marginTop: 10, fontWeight: 700, color: "#047857", cursor: "pointer" }}>
         {file ? "Ganti gambar" : saved ? "Ganti bukti" : "Pilih gambar"}

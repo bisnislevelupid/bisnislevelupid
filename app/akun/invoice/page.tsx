@@ -19,6 +19,7 @@ export default async function InvoicePage() {
             <tr style={{ textAlign: "left", color: "#64748b" }}>
               <th>Invoice</th>
               <th>Produk</th>
+              <th>Instrumen</th>
               <th>Nominal</th>
               <th>Metode</th>
               <th>Status</th>
@@ -29,6 +30,7 @@ export default async function InvoicePage() {
               <tr key={order.id}>
                 <td data-label="Invoice" style={{ fontWeight: 800, padding: "12px 8px" }}>{order.invoice_code}</td>
                 <td data-label="Produk" style={{ padding: "12px 8px" }}>{order.product_name || "-"}</td>
+                <td data-label="Instrumen" style={{ padding: "12px 8px" }}>{order.audit_label || "—"}</td>
                 <td data-label="Nominal" style={{ padding: "12px 8px" }}>{rupiah(order.total_amount)}</td>
                 <td data-label="Metode" style={{ padding: "12px 8px" }}>{order.method_name || "-"}</td>
                 <td data-label="Status" style={{ padding: "12px 8px" }}>

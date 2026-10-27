@@ -1,8 +1,11 @@
 import Link from "next/link";
-import { listPaymentMethods, listPublicProducts } from "@/lib/db/public";
-import { Navbar } from "@/components/landing/navbar";
+import { getPesertaSession } from "@/lib/auth/session";
+import { getCheckoutProfile, listAuditInstruments, listPaymentMethods, listPublicProducts } from "@/lib/db/public";
+import { SiteHeader } from "@/components/landing/site-header";
 import { CheckoutForm } from "./checkout-form";
 import "../prototype.css";
+
+export const dynamic = "force-dynamic";
 
 export default async function CheckoutPage({
   searchParams,
@@ -10,12 +13,18 @@ export default async function CheckoutPage({
   searchParams: Promise<{ product?: string }>;
 }) {
   const { product } = await searchParams;
-  const [products, methods] = await Promise.all([listPublicProducts(), listPaymentMethods()]);
+  const session = await getPesertaSession();
+  const [products, methods, instruments, profile] = await Promise.all([
+    listPublicProducts(),
+    listPaymentMethods(),
+    listAuditInstruments(),
+    session ? getCheckoutProfile(session.id) : Promise.resolve(null),
+  ]);
   const selected = products.find((item) => item.code === product)?.code ?? products.find((item) => item.is_featured)?.code ?? products[0]?.code;
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
-      <Navbar />
+      <SiteHeader />
       <main style={{ padding: "40px 0 80px" }}>
         <div className="container" style={{ maxWidth: 1040 }}>
           <Link
@@ -29,7 +38,14 @@ export default async function CheckoutPage({
             Isi data perusahaan Anda untuk penerbitan lisensi instrumen audit dan invoice resmi.
           </p>
           {selected ? (
-            <CheckoutForm products={products} methods={methods} initialCode={selected} restoreProduct={!product} />
+            <CheckoutForm
+              products={products}
+              methods={methods}
+              instruments={instruments}
+              profile={profile}
+              initialCode={selected}
+              restoreProduct={!product}
+            />
           ) : (
             <p>Paket belum tersedia.</p>
           )}

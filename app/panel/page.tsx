@@ -1,17 +1,14 @@
 import Link from "next/link";
 import { dashboardStats } from "@/lib/admin/crud";
-
-function rupiah(value: string | number) {
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value));
-}
+import { formatRupiah, statusColor, statusText } from "@/lib/admin/format";
 
 export default async function PanelHome() {
   const stats = await dashboardStats();
   const cards = [
-    { label: "Total Revenue Masuk", value: rupiah(stats.revenue), color: "#059669", note: "Order berstatus lunas" },
+    { label: "Total Revenue Masuk", value: formatRupiah(stats.revenue), color: "#059669", note: "Order berstatus lunas" },
     { label: "Transaksi Lunas (Paid)", value: `${stats.paid_orders} Order`, color: "#0f172a", note: "Konversi dari checkout" },
     { label: "Menunggu Konfirmasi", value: `${stats.pending_orders} Order`, color: "#d97706", note: "Menunggu transfer / VA" },
-    { label: "Total Customer", value: `${stats.customers} Peserta`, color: "#0f172a", note: "Akun yang sudah checkout" },
+    { label: "Total Customer", value: `${stats.customers} Peserta`, color: "#0f172a", note: "Akun customer terdaftar" },
   ];
   return (
     <div>
@@ -33,7 +30,7 @@ export default async function PanelHome() {
             Lihat Semua Pesanan →
           </Link>
         </div>
-        <div style={{ overflow: "auto" }}>
+        <div className="panel-as-cards" style={{ overflow: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.88rem" }}>
             <thead>
               <tr style={{ color: "#64748b", textAlign: "left" }}>
@@ -45,31 +42,31 @@ export default async function PanelHome() {
             <tbody>
               {stats.recent.map((row: { id: string; invoice_code: string; customer_name: string; customer_email: string; product_name: string; total_amount: string; method_name: string; status: string }) => (
                 <tr key={row.invoice_code} style={{ borderTop: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: "12px 8px", fontWeight: 700 }}>
+                  <td data-label="Invoice" style={{ padding: "12px 8px", fontWeight: 700 }}>
                     <Link href={`/panel/orders/${row.id}`} style={{ color: "#059669", fontWeight: 700 }}>{row.invoice_code}</Link>
                   </td>
-                  <td style={{ padding: "12px 8px" }}>
+                  <td data-label="Customer" style={{ padding: "12px 8px" }}>
                     <Link href={`/panel/orders/${row.id}`} style={{ color: "inherit", display: "block" }}>
                       <div>{row.customer_name}</div>
                       <div style={{ color: "#94a3b8", fontSize: "0.75rem" }}>{row.customer_email}</div>
                     </Link>
                   </td>
-                  <td style={{ padding: "12px 8px" }}><Link href={`/panel/orders/${row.id}`} style={{ color: "inherit" }}>{row.product_name}</Link></td>
-                  <td style={{ padding: "12px 8px" }}><Link href={`/panel/orders/${row.id}`} style={{ color: "inherit" }}>{rupiah(row.total_amount)}</Link></td>
-                  <td style={{ padding: "12px 8px" }}><Link href={`/panel/orders/${row.id}`} style={{ color: "inherit" }}>{row.method_name}</Link></td>
-                  <td style={{ padding: "12px 8px" }}>
+                  <td data-label="Produk" style={{ padding: "12px 8px" }}><Link href={`/panel/orders/${row.id}`} style={{ color: "inherit" }}>{row.product_name}</Link></td>
+                  <td data-label="Nominal" style={{ padding: "12px 8px" }}><Link href={`/panel/orders/${row.id}`} style={{ color: "inherit" }}>{formatRupiah(row.total_amount)}</Link></td>
+                  <td data-label="Metode" style={{ padding: "12px 8px" }}><Link href={`/panel/orders/${row.id}`} style={{ color: "inherit" }}>{row.method_name}</Link></td>
+                  <td data-label="Status" style={{ padding: "12px 8px" }}>
                     <span style={{
-                      background: row.status === "PAID" ? "#059669" : "#d97706",
+                      background: statusColor(row.status),
                       color: "#fff",
                       borderRadius: 999,
                       padding: "3px 10px",
                       fontSize: "0.72rem",
                       fontWeight: 700,
                     }}>
-                      {row.status}
+                      {statusText(row.status)}
                     </span>
                   </td>
-                  <td style={{ padding: "12px 8px" }}>
+                  <td data-label="Aksi" style={{ padding: "12px 8px" }}>
                     <Link href={`/panel/orders/${row.id}`} style={{ display: "inline-flex", background: "#059669", color: "#fff", borderRadius: 999, padding: "4px 12px", fontWeight: 700, fontSize: "0.75rem" }}>Detail</Link>
                   </td>
                 </tr>

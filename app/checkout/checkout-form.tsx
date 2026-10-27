@@ -34,6 +34,8 @@ type Method = {
   logo_url: string | null;
   type: string;
   provider: string;
+  account_number?: string | null;
+  account_holder?: string | null;
 };
 
 const DRAFT_KEY = "blu-checkout-draft";
@@ -57,9 +59,21 @@ function defaultMethodId(methods: Method[]) {
   return methods.find((method) => method.provider === "Manual" || method.type === "bank_transfer")?.id ?? methods[0]?.id ?? "";
 }
 
+function methodHint(method: Method) {
+  const number = method.account_number?.trim();
+  if (number) {
+    const holder = method.account_holder?.trim();
+    return holder ? `Rekening ${number} a.n. ${holder}` : `Rekening ${number}`;
+  }
+  if (method.provider === "Manual" || method.type === "bank_transfer") {
+    return "Nomor rekening mengikuti pengaturan metode bayar";
+  }
+  return `Konfirmasi instan via ${method.provider}`;
+}
+
 function assurance(method: Method | undefined) {
   if (method?.provider === "Manual" || method?.type === "bank_transfer") {
-    return "Transfer manual ke rekening resmi. Admin menandai lunas setelah dana masuk.";
+    return "Transfer ke rekening yang tertera di metode ini. Admin menandai lunas setelah dana masuk.";
   }
   if (method?.provider === "Midtrans") return "Pembayaran diamankan oleh Midtrans";
   return "Pembayaran diamankan oleh Xendit";
@@ -457,7 +471,7 @@ export function CheckoutForm({
                     <span style={{ flex: 1 }}>
                       <strong style={{ display: "block", fontSize: "0.92rem" }}>{method.name}</strong>
                       <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                        {method.provider === "Manual" ? "Transfer ke rekening resmi" : `Konfirmasi instan via ${method.provider}`}
+                        {methodHint(method)}
                       </span>
                     </span>
                     <span style={{ fontSize: "0.72rem", background: "#ecfeff", color: "#0369a1", borderRadius: 999, padding: "4px 8px", fontWeight: 700 }}>

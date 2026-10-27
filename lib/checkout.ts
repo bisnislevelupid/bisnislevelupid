@@ -3,6 +3,7 @@ import { withPool } from "@/lib/db";
 import { provisionPaidSessions } from "@/lib/db/orders";
 import { lookupAuditNames } from "@/lib/db/public";
 import { fillPlaceholders, rupiah, sanitizeEmailHtml } from "@/lib/email/html";
+import { paymentPlaceholderValues } from "@/lib/payment/bank-details";
 import { createXenditPayment } from "@/lib/payment/xendit";
 import { createGopaySnap } from "@/lib/payment/midtrans";
 import { codesFromUnlocked } from "@/lib/portal/labels";
@@ -320,14 +321,16 @@ export async function getOrderPublic(invoice: string) {
        ) ORDER BY sort_order`,
       [invoice],
     );
-    const values = {
-      va: String(order.va_number ?? "nomor VA di halaman ini"),
-      kode: String(order.payment_code ?? "kode bayar di halaman ini"),
-      rekening: String(order.account_number ?? "-"),
-      atas_nama: String(order.account_holder ?? "BisnisLevelUp.id"),
+    const values = paymentPlaceholderValues({
+      accountNumber: order.account_number,
+      accountHolder: order.account_holder,
+      vaNumber: order.va_number,
+      paymentCode: order.payment_code,
       nominal: rupiah(String(order.total_amount ?? "0")),
-      metode: String(order.method_name ?? ""),
-    };
+      methodName: order.method_name,
+      vaFallback: "nomor VA di halaman ini",
+      codeFallback: "kode bayar di halaman ini",
+    });
     return {
       ...order,
       product_name: items.rows.map((item) => String(item.product_name ?? "")).filter(Boolean).join(", "),

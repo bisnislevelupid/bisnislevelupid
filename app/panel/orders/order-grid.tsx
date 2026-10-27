@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { statusText } from "@/lib/admin/format";
 import { DataGrid, StatusPill, type GridColumn } from "../_components/data-grid";
 
 export type OrderRow = {
@@ -27,7 +28,7 @@ const columns: GridColumn<OrderRow>[] = [
   ) },
   { key: "product", label: "Produk", value: (row) => row.product },
   { key: "method", label: "Metode", value: (row) => row.method },
-  { key: "status", label: "Status", value: (row) => row.status, render: (row) => <StatusPill value={row.status} /> },
+  { key: "status", label: "Status", value: (row) => `${row.status} ${statusText(row.status)}`, render: (row) => <StatusPill value={row.status} /> },
   { key: "total", label: "Grand total", value: (row) => row.total },
   { key: "created", label: "Masuk", value: (row) => row.created },
   {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import { statusColor, statusText } from "@/lib/admin/format";
 
 export type GridColumn<T> = {
   key: string;
@@ -44,17 +45,9 @@ export function exportExcel(filename: string, headers: string[], rows: string[][
 }
 
 export function StatusPill({ value }: { value: string }) {
-  const tone =
-    value === "PAID" || value === "ACTIVE" || value === "SENT"
-      ? "#059669"
-      : value === "PENDING" || value === "HAMPIR"
-        ? "#d97706"
-        : value === "FAILED" || value === "EXPIRED" || value === "INACTIVE"
-          ? "#dc2626"
-          : "#0369a1";
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", background: tone, color: "#fff", borderRadius: 999, padding: "3px 10px", fontSize: "0.72rem", fontWeight: 700 }}>
-      {value || "—"}
+    <span style={{ display: "inline-flex", alignItems: "center", background: statusColor(value), color: "#fff", borderRadius: 999, padding: "3px 10px", fontSize: "0.72rem", fontWeight: 700 }}>
+      {statusText(value)}
     </span>
   );
 }
@@ -159,7 +152,7 @@ export function DataGrid<T>({
         </div>
       ) : null}
       <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, overflow: "hidden" }}>
-        <div style={{ overflow: "auto" }}>
+        <div className="panel-as-cards" style={{ overflow: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
           <thead>
             <tr>
@@ -172,15 +165,17 @@ export function DataGrid<T>({
           <tbody>
             {slice.map((row, index) => (
               <tr key={rowKey(row)} style={{ borderTop: "1px solid #f1f5f9" }}>
-                <td style={td}>{(current - 1) * pageSize + index + 1}</td>
+                <td data-label="No" style={td}>{(current - 1) * pageSize + index + 1}</td>
                 {columns.map((column) => (
-                  <td key={column.key} style={td}>{column.render ? column.render(row) : column.value(row) || "—"}</td>
+                  <td key={column.key} data-label={column.label} style={td}>{column.render ? column.render(row) : column.value(row) || "—"}</td>
                 ))}
               </tr>
             ))}
             {!slice.length ? (
               <tr>
-                <td style={td} colSpan={columns.length + 1}>Tidak ada data yang cocok.</td>
+                <td data-label="" style={td} colSpan={columns.length + 1}>
+                  {terms.trim() || filters.some((filter) => filter.value.trim()) ? "Tidak ada data yang cocok." : "Belum ada data."}
+                </td>
               </tr>
             ) : null}
           </tbody>

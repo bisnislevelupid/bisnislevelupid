@@ -37,6 +37,25 @@ export function isAdminTable(value: string): value is AdminTable {
   return (ADMIN_TABLES as readonly string[]).includes(value);
 }
 
+/** Catatan yang ditulis sistem. Panel hanya boleh membaca. */
+export const READONLY_RESOURCES = new Set<AdminTable>([
+  "customer_sessions",
+  "order_items",
+  "payment_logs",
+  "notification_logs",
+  "test_sessions",
+  "test_answers",
+  "test_results",
+  "result_section_scores",
+  "result_recommendations",
+  "coupon_usage",
+  "affiliate_referrals",
+]);
+
+export function isReadonlyResource(value: string) {
+  return READONLY_RESOURCES.has(value as AdminTable);
+}
+
 export const PANEL_SECTIONS: {
   label: string;
   href: string;
@@ -60,7 +79,7 @@ export const PANEL_SECTIONS: {
     href: "/panel/phases",
     icon: "Library",
     tabs: [
-      { label: "Fase bisnis", href: "/panel/phases", icon: "Layers" },
+      { label: "Fase", href: "/panel/phases", icon: "Layers" },
       { label: "Transisi audit", href: "/panel/audit_transitions", icon: "GitBranch" },
       { label: "Seksi soal", href: "/panel/test_sections", icon: "FolderTree" },
       { label: "Bank soal", href: "/panel/test_questions", icon: "HelpCircle" },
@@ -74,7 +93,7 @@ export const PANEL_SECTIONS: {
     icon: "Package",
     tabs: [
       { label: "Kategori", href: "/panel/product_categories", icon: "Tags" },
-      { label: "Katalog", href: "/panel/products", icon: "Package" },
+      { label: "Produk", href: "/panel/products", icon: "Package" },
       { label: "Upsell", href: "/panel/upsell_items", icon: "BadgePlus" },
     ],
   },

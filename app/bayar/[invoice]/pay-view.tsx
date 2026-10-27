@@ -77,7 +77,7 @@ function stepsFor(order: Order): string[] {
     return [
       `Buka m-banking atau ATM ${bank}.`,
       "Pilih transfer ke rekening bank yang sama.",
-      `Masukkan nomor rekening ${order.account_number} a.n. ${order.account_holder ?? "BisnisLevelUp"}.`,
+      `Masukkan nomor rekening ${order.account_number}${order.account_holder?.trim() ? ` a.n. ${order.account_holder.trim()}` : ""}.`,
       `Transfer tepat ${rupiah(order.total_amount)}. Tiga digit terakhir membedakan pembayaran Anda.`,
       "Simpan bukti transfer. Admin mencocokkan nominal unik ini untuk menandai lunas.",
     ];
@@ -213,7 +213,7 @@ export function PayView({
             {order.payment_code ? <CopyRow label="Kode bayar di kasir" value={order.payment_code} copyValue={order.payment_code} mono /> : null}
             {order.provider === "Manual" && order.account_number ? (
               <>
-                <CopyRow label={`Rekening ${order.account_holder ?? ""}`} value={order.account_number} copyValue={order.account_number} mono />
+                <CopyRow label={order.account_holder?.trim() ? `Rekening a.n. ${order.account_holder.trim()}` : "Nomor rekening"} value={order.account_number} copyValue={order.account_number} mono />
                 <ProofUpload
                   invoice={order.invoice_code}
                   current={order.transfer_proof_url ?? null}
@@ -252,30 +252,28 @@ export function PayView({
 
           <section style={card}>
             <h2 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: 12 }}>Cara membayar</h2>
-            <ol style={{ display: "flex", flexDirection: "column", gap: 12, margin: 0, padding: 0, listStyle: "none" }}>
-              {steps.map((step, index) => (
-                <li key={step} style={{ display: "flex", gap: 10 }}>
-                  <span style={{ width: 26, height: 26, borderRadius: "50%", background: "#059669", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.78rem", fontWeight: 800, flexShrink: 0 }}>
-                    {index + 1}
-                  </span>
-                  <span style={{ fontSize: "0.92rem", color: "#334155", lineHeight: 1.5 }}>{step}</span>
-                </li>
-              ))}
-            </ol>
             {order.instructions.length > 0 ? (
-              <div style={{ marginTop: 20, borderTop: "1px solid #e2e8f0", paddingTop: 14 }}>
-                <p style={{ fontWeight: 700, marginBottom: 8 }}>Panduan kanal</p>
-                {order.instructions.map((item) => (
-                  <article key={item.title} style={{ marginBottom: 12 }}>
-                    <h3 style={{ fontSize: "0.9rem", fontWeight: 700 }}>{item.title}</h3>
-                    <div
-                      style={{ fontSize: "0.85rem", color: "#475569", marginTop: 4 }}
-                      dangerouslySetInnerHTML={{ __html: item.content }}
-                    />
-                  </article>
+              order.instructions.map((item) => (
+                <article key={item.title} style={{ marginBottom: 14 }}>
+                  <h3 style={{ fontSize: "0.95rem", fontWeight: 700 }}>{item.title}</h3>
+                  <div
+                    style={{ fontSize: "0.92rem", color: "#334155", marginTop: 6, lineHeight: 1.5 }}
+                    dangerouslySetInnerHTML={{ __html: item.content }}
+                  />
+                </article>
+              ))
+            ) : (
+              <ol style={{ display: "flex", flexDirection: "column", gap: 12, margin: 0, padding: 0, listStyle: "none" }}>
+                {steps.map((step, index) => (
+                  <li key={step} style={{ display: "flex", gap: 10 }}>
+                    <span style={{ width: 26, height: 26, borderRadius: "50%", background: "#059669", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.78rem", fontWeight: 800, flexShrink: 0 }}>
+                      {index + 1}
+                    </span>
+                    <span style={{ fontSize: "0.92rem", color: "#334155", lineHeight: 1.5 }}>{step}</span>
+                  </li>
                 ))}
-              </div>
-            ) : null}
+              </ol>
+            )}
           </section>
         </div>
       </div>

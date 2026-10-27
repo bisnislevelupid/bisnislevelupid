@@ -63,7 +63,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
     <div>
       <h1 style={{ marginTop: 0 }}>{instrument.name}</h1>
       <p style={{ color: "#64748b" }}>{instrument.fromPhase} menuju {instrument.toPhase}</p>
-      <AuditRunner instrument={instrument} sessionId={sessionId} initialAnswers={bundle.answers} locked={bundle.session.locked} />
+      <AuditRunner key={sessionId} instrument={instrument} sessionId={sessionId} initialAnswers={bundle.answers} locked={bundle.session.locked} />
     </div>
   );
 }

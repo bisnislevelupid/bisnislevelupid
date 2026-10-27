@@ -69,12 +69,6 @@ export type OwnedAudit = {
   } | null;
 };
 
-async function ensureColumns(pool: { query: (q: string) => Promise<unknown> }) {
-  await pool.query(
-    `ALTER TABLE test_sessions ADD COLUMN IF NOT EXISTS locked_section_ids text NOT NULL DEFAULT ''`,
-  );
-}
-
 function hasId(id: string) {
   return /^\d+$/.test(id);
 }
@@ -140,7 +134,6 @@ export async function participantCanAudit(customerId: string) {
 export async function listOwnedAudits(customerId: string): Promise<OwnedAudit[]> {
   if (!hasId(customerId)) return [];
   return withPool(async (pool) => {
-    await ensureColumns(pool);
     const paid = await pool.query(
       `SELECT o.id::text AS order_id, string_agg(oi.audit_ids_unlocked, ',') AS audits
        FROM orders o
@@ -276,12 +269,16 @@ export function getInstrument(code: string) {
   return cachedJson(`naikfase:audit:${code}`, 3600, () => loadInstrument(code));
 }
 
-export type SavedAnswer = { questionId: string; answer: AnswerCode; note: string | null };
+export type SavedAnswer = {
+  questionId: string;
+  answer: AnswerCode;
+  note: string | null;
+  clientSeq: number;
+};
 
 export async function getSessionBundle(customerId: string, sessionId: string) {
   if (!hasId(customerId) || !hasId(sessionId)) return null;
   return withPool(async (pool) => {
-    await ensureColumns(pool);
     const { rows } = await pool.query(
       `SELECT s.id::text, s.status, s.respondent_name, s.company_name, s.business_field,
               s.business_start_year, s.external_auditor_name, s.locked_section_ids,
@@ -308,7 +305,8 @@ export async function getSessionBundle(customerId: string, sessionId: string) {
       | undefined;
     if (!session) return null;
     const answers = await pool.query(
-      `SELECT question_id::text, answer, note FROM test_answers WHERE session_id = $1`,
+      `SELECT question_id::text, answer, note, COALESCE(client_seq, 0)::text AS client_seq
+       FROM test_answers WHERE session_id = $1`,
       [sessionId],
     );
     return {
@@ -316,10 +314,16 @@ export async function getSessionBundle(customerId: string, sessionId: string) {
         ...session,
         locked: session.locked_section_ids.split(",").filter(Boolean),
       },
-      answers: (answers.rows as Array<{ question_id: string; answer: AnswerCode; note: string | null }>).map((row) => ({
+      answers: (answers.rows as Array<{
+        question_id: string;
+        answer: AnswerCode;
+        note: string | null;
+        client_seq: string;
+      }>).map((row) => ({
         questionId: row.question_id,
         answer: row.answer,
         note: row.note,
+        clientSeq: readSeq(row.client_seq),
       })),
     };
   });
@@ -338,7 +342,6 @@ export async function startSession(input: {
   const instrument = await getInstrument(input.auditCode);
   if (!instrument) return { ok: false as const, error: "Instrumen tidak ditemukan" };
   return withPool(async (pool) => {
-    await ensureColumns(pool);
     const phaseKey = Object.entries(AUDIT_BY_PHASE).find(([, code]) => code === input.auditCode)?.[0] ?? "";
     const owned = await pool.query(
       `SELECT 1 FROM orders o
@@ -400,6 +403,24 @@ export async function startSession(input: {
   });
 }
 
+const SAVE_ERRORS: Record<string, string> = {
+  not_found: "Sesi tidak ditemukan",
+  session_locked: "Sesi sudah dikunci",
+  wrong_question: "Butir tidak termasuk instrumen ini",
+  section_locked: "Seksi ini sudah selesai dan tidak bisa diubah",
+  na_forbidden: "Butir ini tidak memiliki pilihan Tidak Berlaku",
+};
+
+function readSeq(value: unknown) {
+  if (typeof value === "bigint") return Number(value);
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
 export async function saveAnswer(input: {
   customerId: string;
   sessionId: string;
@@ -409,85 +430,107 @@ export async function saveAnswer(input: {
   clientSeq: number;
 }) {
   if (!hasId(input.customerId) || !hasId(input.sessionId) || !hasId(input.questionId)) {
-    return { ok: false as const, error: "Jawaban tidak valid", permanent: true };
+    return { ok: false as const, error: "Jawaban tidak valid", permanent: true, reason: "invalid" };
   }
   if (!Number.isInteger(input.clientSeq) || input.clientSeq <= 0) {
-    return { ok: false as const, error: "Jawaban tidak valid", permanent: true };
+    return { ok: false as const, error: "Jawaban tidak valid", permanent: true, reason: "invalid" };
   }
   return withPool(async (pool) => {
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      const found = await client.query(
-        `SELECT s.status, s.locked_section_ids,
-                tq.id::text AS question_id, tq.section_id::text AS section_id, tq.has_not_applicable
+    const saved = await pool.query(
+      `WITH locked_session AS (
+         SELECT s.id, s.status, COALESCE(s.locked_section_ids, '') AS locked_section_ids, s.audit_transition_id
          FROM test_sessions s
-         LEFT JOIN test_questions tq
-           ON tq.id = $3 AND tq.audit_transition_id = s.audit_transition_id AND tq.is_active = true
          WHERE s.id = $1 AND s.customer_id = $2
-         FOR UPDATE OF s`,
-        [input.sessionId, input.customerId, input.questionId],
-      );
-      const row = found.rows[0] as
-        | {
-            status: string;
-            locked_section_ids: string | null;
-            question_id: string | null;
-            section_id: string | null;
-            has_not_applicable: boolean | null;
-          }
-        | undefined;
-      if (!row) {
-        await client.query("ROLLBACK");
-        return { ok: false as const, error: "Sesi tidak ditemukan", permanent: true };
-      }
-      if (row.status !== "IN_PROGRESS") {
-        await client.query("ROLLBACK");
-        return { ok: false as const, error: "Sesi sudah dikunci", permanent: true };
-      }
-      if (!row.question_id || !row.section_id) {
-        await client.query("ROLLBACK");
-        return { ok: false as const, error: "Butir tidak termasuk instrumen ini", permanent: true };
-      }
-      const locked = (row.locked_section_ids ?? "").split(",").filter(Boolean);
-      if (locked.includes(row.section_id)) {
-        await client.query("ROLLBACK");
-        return { ok: false as const, error: "Seksi ini sudah selesai dan tidak bisa diubah", permanent: true };
-      }
-      if (input.answer === "TIDAK_BERLAKU" && !row.has_not_applicable) {
-        await client.query("ROLLBACK");
-        return { ok: false as const, error: "Butir ini tidak memiliki pilihan Tidak Berlaku", permanent: true };
-      }
-      const saved = await client.query(
-        `INSERT INTO test_answers (session_id, question_id, answer, note, client_seq)
-         VALUES ($1, $2, $3, $4, $5)
+         FOR UPDATE
+       ),
+       decision AS (
+         SELECT
+           s.id AS session_id,
+           s.status,
+           s.locked_section_ids,
+           q.id AS question_id,
+           q.section_id::text AS section_id,
+           q.has_not_applicable
+         FROM (SELECT 1) AS anchor
+         LEFT JOIN locked_session s ON true
+         LEFT JOIN test_questions q
+           ON q.id = $3
+          AND q.audit_transition_id = s.audit_transition_id
+          AND q.is_active = true
+       ),
+       classified AS (
+         SELECT
+           session_id,
+           question_id,
+           CASE
+             WHEN session_id IS NULL THEN 'not_found'
+             WHEN status <> 'IN_PROGRESS' THEN 'session_locked'
+             WHEN question_id IS NULL THEN 'wrong_question'
+             WHEN position(',' || section_id || ',' IN ',' || locked_section_ids || ',') > 0 THEN 'section_locked'
+             WHEN $4 = 'TIDAK_BERLAKU' AND NOT COALESCE(has_not_applicable, false) THEN 'na_forbidden'
+             ELSE 'ok'
+           END AS reason
+         FROM decision
+       ),
+       upsert AS (
+         INSERT INTO test_answers (session_id, question_id, answer, note, client_seq)
+         SELECT c.session_id, c.question_id, $4, $5, $6
+         FROM classified c
+         WHERE c.reason = 'ok'
          ON CONFLICT (session_id, question_id) DO UPDATE
          SET answer = EXCLUDED.answer,
              note = EXCLUDED.note,
              client_seq = EXCLUDED.client_seq,
              updated_at = NOW()
          WHERE test_answers.client_seq < EXCLUDED.client_seq
-         RETURNING id`,
-        [input.sessionId, input.questionId, input.answer, input.note || null, input.clientSeq],
-      );
-      const applied = (saved.rowCount ?? 0) > 0;
-      if (applied) {
-        await client.query(
-          `UPDATE test_sessions
-           SET answered_count = (SELECT COUNT(*)::int FROM test_answers WHERE session_id = $1),
-               updated_at = NOW()
-           WHERE id = $1 AND status = 'IN_PROGRESS'`,
-          [input.sessionId],
-        );
-      }
-      await client.query("COMMIT");
-      return { ok: true as const, applied };
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
+         RETURNING session_id, question_id, answer, note, client_seq, (xmax = 0) AS inserted
+       ),
+       bumped AS (
+         UPDATE test_sessions s
+         SET answered_count = s.answered_count + 1,
+             updated_at = NOW()
+         WHERE s.id = $1
+           AND EXISTS (SELECT 1 FROM upsert WHERE inserted)
+         RETURNING s.id
+       )
+       SELECT c.reason,
+              (u.question_id IS NOT NULL) AS applied,
+              COALESCE(u.answer, ta.answer) AS stored_answer,
+              COALESCE(u.note, ta.note) AS stored_note,
+              COALESCE(u.client_seq, ta.client_seq)::text AS stored_seq
+       FROM classified c
+       LEFT JOIN upsert u ON true
+       LEFT JOIN test_answers ta ON ta.session_id = $1 AND ta.question_id = $3
+       LEFT JOIN bumped b ON true`,
+      [input.sessionId, input.customerId, input.questionId, input.answer, input.note || null, input.clientSeq],
+    );
+    const row = saved.rows[0] as
+      | {
+          reason: string;
+          applied: boolean;
+          stored_answer: AnswerCode | null;
+          stored_note: string | null;
+          stored_seq: string | null;
+        }
+      | undefined;
+    if (!row) throw new Error("saveAnswer returned no row");
+    if (row.reason !== "ok") {
+      return {
+        ok: false as const,
+        error: SAVE_ERRORS[row.reason] ?? "Jawaban tidak valid",
+        permanent: true,
+        reason: row.reason,
+      };
     }
+    const applied = row.applied === true;
+    return {
+      ok: true as const,
+      applied,
+      reason: applied ? ("applied" as const) : ("stale" as const),
+      answer: row.stored_answer ?? input.answer,
+      note: row.stored_note ?? "",
+      clientSeq: readSeq(row.stored_seq),
+    };
   });
 }
 

@@ -41,15 +41,17 @@ export const TEST_RESULT_HTML = shell(
   "Hasil diagnosis",
   "{audit_name}",
   `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Halo {nama},</p>
-<p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155;">Audit sudah selesai. Laporan PDF terlampir di email ini dan bisa diunduh dari tombol di bawah.</p>
+<p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155;">Audit sudah selesai pada {selesai}. Laporan PDF multi-halaman terlampir di email ini. Tautan unduh membuka akun Anda.</p>
+<p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155;">{status_arti}</p>
 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;margin:0 0 12px;">
 <div style="font-size:12px;color:#64748b;font-weight:700;">SKOR</div>
-<div style="font-size:28px;font-weight:700;color:#064e3b;margin-top:6px;">{skor}%</div>
+<div style="font-size:28px;font-weight:700;color:#064e3b;margin-top:6px;">{skor}</div>
 </div>
 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;margin:0 0 18px;">
 <div style="font-size:12px;color:#64748b;font-weight:700;">STATUS</div>
 <div style="font-size:18px;font-weight:700;color:#0f172a;margin-top:8px;">{status}</div>
 </div>
 <a href="{pdf_url}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:999px;">Unduh laporan PDF</a>
-<a href="{dashboard_url}" style="display:inline-block;margin-left:8px;color:#047857;font-weight:700;text-decoration:none;padding:12px 8px;">Lihat di akun</a>`,
+<a href="{dashboard_url}" style="display:inline-block;margin-left:8px;color:#047857;font-weight:700;text-decoration:none;padding:12px 8px;">Lihat di akun</a>
+<div style="margin-top:18px;">{cta_html}</div>`,
 );

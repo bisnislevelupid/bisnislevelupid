@@ -21,10 +21,26 @@ export function rupiah(value: number | string) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value));
 }
 
+/** Timestamp Postgres/ISO. Tanpa zona dianggap UTC, supaya jam tidak ikut zona proses. */
+function parseInstant(value: string) {
+  const text = value.trim();
+  const match = text.match(
+    /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)(?:\s*(Z|[+-]\d{2}(?::?\d{2})?))?$/,
+  );
+  if (!match) return new Date(text);
+  const [, day, time, zone] = match;
+  if (!zone || zone === "Z") return new Date(`${day}T${time}Z`);
+  const compact = zone.replace(":", "");
+  const sign = compact[0] === "-" ? "-" : "+";
+  const hours = compact.slice(1, 3).padStart(2, "0");
+  const minutes = (compact.slice(3, 5) || "00").padEnd(2, "0");
+  return new Date(`${day}T${time}${sign}${hours}:${minutes}`);
+}
+
 /** Absolute timestamp in Western Indonesia Time, with an explicit WIB label. */
 export function formatWib(value: string | Date | null | undefined) {
-  if (!value) return "";
-  const date = value instanceof Date ? value : new Date(value);
+  if (value == null || value === "") return "";
+  const date = value instanceof Date ? value : parseInstant(String(value));
   if (Number.isNaN(date.getTime())) return "";
   const formatted = new Intl.DateTimeFormat("id-ID", {
     timeZone: "Asia/Jakarta",

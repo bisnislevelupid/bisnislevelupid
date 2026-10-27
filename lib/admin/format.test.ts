@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { fixedColumns } from "@/lib/admin/catalog";
 import { maskEmail, maskPaymentPayload, maskPhone } from "@/lib/admin/redact";
-import { publicSiteUrl } from "@/lib/email/site-url";
+import { publicSiteUrl, siteUrl } from "@/lib/email/site-url";
 import { formatWib } from "@/lib/portal/labels";
-import { formatCell, formatRupiah, paymentTypeLabel, statusText } from "./format";
+import { formatCell, formatRupiah, paymentTypeLabel, statusText, uniqueTransferLabel } from "./format";
 import { columnLabel, pickVisibleColumns, tableLabel } from "./labels";
 import { isReadonlyResource } from "./resources";
 import { describePanelStatus } from "./status";
@@ -13,6 +13,10 @@ test("rupiah memakai pemisah ribuan Indonesia dan awalan Rp", () => {
   assert.equal(formatRupiah(1250000), "Rp 1.250.000");
   assert.equal(formatRupiah("1997000"), "Rp 1.997.000");
   assert.equal(formatRupiah(0), "Rp 0");
+  assert.equal(uniqueTransferLabel(197023, 197023), "Rp 197.023 (unik Rp 23)");
+  assert.equal(uniqueTransferLabel(197000, 197123), "Rp 197.000 (unik Rp 123)");
+  assert.equal(uniqueTransferLabel(197000, null), "Rp 197.000");
+  assert.equal(uniqueTransferLabel(197000, 197000), "Rp 197.000");
 });
 
 test("tanggal panel memakai formatWib", () => {
@@ -106,6 +110,10 @@ test("tautan email tidak memakai localhost", () => {
   assert.equal(publicSiteUrl(), "https://www.bisnislevelup.id");
   process.env.NEXT_PUBLIC_SITE_URL = "https://www.bisnislevelup.id/panel";
   assert.equal(publicSiteUrl(), "https://www.bisnislevelup.id");
+  process.env.NEXT_PUBLIC_SITE_URL = "https://bisnislevelup.id";
+  assert.equal(siteUrl(), "https://www.bisnislevelup.id");
+  process.env.NEXT_PUBLIC_SITE_URL = "https://bisnislevelup.id/akun";
+  assert.equal(siteUrl(), "https://www.bisnislevelup.id");
   if (site === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
   else process.env.NEXT_PUBLIC_SITE_URL = site;
   if (app === undefined) delete process.env.NEXT_PUBLIC_APP_URL;

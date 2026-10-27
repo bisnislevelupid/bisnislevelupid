@@ -2,46 +2,28 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderDetail } from "@/lib/admin/orders";
-import { formatRupiah, statusText } from "@/lib/admin/format";
+import { formatRupiah, statusText, uniqueTransferCode } from "@/lib/admin/format";
 import { formatWib } from "@/lib/portal/labels";
-import { MarkPaidButton } from "../mark-paid";
-import { RejectOrderButton } from "../reject-order";
+import { OrderHeadline } from "../order-status";
 
 export const dynamic = "force-dynamic";
-
-function statusTone(status: string) {
-  if (status === "PAID") return { bg: "#059669", label: statusText(status) };
-  if (status === "PENDING") return { bg: "#d97706", label: "Menunggu pembayaran" };
-  if (status === "EXPIRED") return { bg: "#64748b", label: statusText(status) };
-  if (status === "CANCELLED") return { bg: "#b91c1c", label: statusText(status) };
-  return { bg: "#0369a1", label: statusText(status) };
-}
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const detail = await getOrderDetail(id);
   if (!detail) notFound();
   const order = detail.order;
-  const status = String(order.status ?? "");
-  const tone = statusTone(status);
-  const closed = status === "PAID" || status === "CANCELLED";
   const manualTransfer = String(order.method_type ?? "") === "bank_transfer";
+  const uniqueCode = uniqueTransferCode(order.unique_amount);
   return (
     <div>
       <Link href="/panel/orders" style={{ color: "#059669", fontWeight: 700 }}>← Semua pesanan</Link>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginTop: 14, flexWrap: "wrap" }}>
-        <div>
-          <p style={{ margin: 0, color: "#64748b", fontSize: "0.82rem" }}>Invoice</p>
-          <h1 style={{ fontSize: "1.7rem", fontWeight: 800, margin: "2px 0 8px" }}>{String(order.invoice_code)}</h1>
-          <span style={{ background: tone.bg, color: "#fff", borderRadius: 999, padding: "4px 12px", fontWeight: 700, fontSize: "0.8rem" }}>{tone.label}</span>
-        </div>
-        {closed ? null : (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <MarkPaidButton orderId={String(order.id)} invoice={String(order.invoice_code)} />
-            {manualTransfer ? <RejectOrderButton orderId={String(order.id)} invoice={String(order.invoice_code)} /> : null}
-          </div>
-        )}
-      </div>
+      <OrderHeadline
+        status={String(order.status ?? "")}
+        orderId={String(order.id)}
+        invoice={String(order.invoice_code)}
+        manualTransfer={manualTransfer}
+      />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginTop: 20 }}>
         <section style={card}>
@@ -70,8 +52,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <strong>Grand total</strong>
             <strong style={{ color: "#059669", fontSize: "1.15rem" }}>{formatRupiah(String(order.total_amount ?? 0))}</strong>
           </div>
-          {order.unique_amount != null && String(order.unique_amount) !== "" ? (
-            <p style={{ margin: "8px 0 0", color: "#047857", fontSize: "0.85rem" }}>Nominal unik transfer: {formatRupiah(String(order.unique_amount))}</p>
+          {uniqueCode != null ? (
+            <p style={{ margin: "8px 0 0", color: "#047857", fontSize: "0.85rem" }}>
+              Kode unik: {formatRupiah(uniqueCode)}
+            </p>
           ) : null}
         </section>
       </div>

@@ -1,5 +1,5 @@
 import type { ReportView } from "@/lib/db/portal";
-import { statusLabel } from "@/lib/portal/labels";
+import { formatWib, statusLabel } from "@/lib/portal/labels";
 
 function escapePdf(value: string) {
   return value.replace(/[^\x20-\x7E]/g, " ").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
@@ -27,7 +27,7 @@ export function buildReportPdf(report: ReportView) {
     "BisnisLevelUp.id",
     "Laporan Diagnosis Bisnis",
     `${report.respondent ?? "-"} · ${report.company ?? "-"}`,
-    `${report.auditName} · ${report.completedAt ?? ""}`,
+    `${report.auditName} · ${formatWib(report.completedAt) || ""}`,
     "",
     `Fase: ${report.fromPhase} -> ${report.toPhase}`,
     `Status: ${label.title} (${label.tone})`,

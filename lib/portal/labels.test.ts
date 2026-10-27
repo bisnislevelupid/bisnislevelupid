@@ -16,4 +16,15 @@ test("formatWib labels Western Indonesia Time", () => {
   assert.match(label, /12\.00/);
   assert.match(label, /WIB$/);
   assert.equal(formatWib(null), "");
+  const fromPg = formatWib("2026-10-27 05:45:00.830753+00");
+  assert.match(fromPg, /12\.45/);
+  assert.match(fromPg, /WIB$/);
+  assert.doesNotMatch(fromPg, /05\.45/);
+  const naiveUtc = formatWib("2026-10-27 05:45:00");
+  assert.match(naiveUtc, /12\.45/);
+  assert.match(naiveUtc, /WIB$/);
+  assert.doesNotMatch(naiveUtc, /05\.45/);
+  const shortOffset = formatWib("2026-10-27T05:45:00.830753+00");
+  assert.match(shortOffset, /12\.45/);
+  assert.match(shortOffset, /WIB$/);
 });

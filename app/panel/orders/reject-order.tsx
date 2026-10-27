@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { startTransition, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-export function RejectOrderButton({ orderId, invoice }: { orderId: string; invoice: string }) {
+export function RejectOrderButton({ orderId, invoice, onDone }: { orderId: string; invoice: string; onDone?: () => void }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -34,7 +34,10 @@ export function RejectOrderButton({ orderId, invoice }: { orderId: string; invoi
     }
     toast.success(`${invoice} dibatalkan`);
     setOpen(false);
-    router.refresh();
+    onDone?.();
+    startTransition(() => {
+      router.refresh();
+    });
   }
 
   return (

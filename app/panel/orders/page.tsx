@@ -1,15 +1,9 @@
 import { listOrders } from "@/lib/admin/orders";
-import { formatRupiah } from "@/lib/admin/format";
+import { uniqueTransferLabel } from "@/lib/admin/format";
 import { formatWib } from "@/lib/portal/labels";
 import { OrderGrid, type OrderRow } from "./order-grid";
 
 export const dynamic = "force-dynamic";
-
-function money(total: unknown, uniqueAmount: unknown) {
-  const grand = formatRupiah(String(total ?? 0));
-  if (uniqueAmount == null || uniqueAmount === "") return grand;
-  return `${grand} (unik ${formatRupiah(String(uniqueAmount))})`;
-}
 
 export default async function OrdersPage() {
   const rows = await listOrders();
@@ -22,7 +16,7 @@ export default async function OrdersPage() {
     product: String(row.product_name ?? ""),
     method: String(row.method_name ?? ""),
     status: String(row.status ?? ""),
-    total: money(row.total_amount, row.unique_amount),
+    total: uniqueTransferLabel(row.total_amount, row.unique_amount),
     created: formatWib(row.created_at as string | null) || "—",
   }));
   return (

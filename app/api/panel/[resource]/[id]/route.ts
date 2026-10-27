@@ -1,8 +1,15 @@
+import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminTable, isReadonlyResource } from "@/lib/admin/resources";
 import { getResource, mutateResource } from "@/lib/admin/crud";
 import { cancelUnpaidManualOrder } from "@/lib/admin/orders";
 import { superadminFromRequest } from "@/lib/auth/session";
+
+function refreshOrderViews(id: string) {
+  revalidatePath("/panel", "layout");
+  revalidatePath("/panel/orders");
+  revalidatePath(`/panel/orders/${id}`);
+}
 
 async function guard(req: NextRequest) {
   const session = await superadminFromRequest(req);
@@ -34,11 +41,14 @@ export async function PATCH(
   if (isReadonlyResource(resource)) return NextResponse.json({ error: "Tabel ini hanya bisa dibaca" }, { status: 405 });
   try {
     const body = await req.json();
+    const recordId = decodeURIComponent(id);
     if (resource === "orders" && (body?.action === "cancel" || body?.status === "CANCELLED")) {
-      const row = await cancelUnpaidManualOrder(decodeURIComponent(id), String(body?.reason ?? ""));
+      const row = await cancelUnpaidManualOrder(recordId, String(body?.reason ?? ""));
+      refreshOrderViews(recordId);
       return NextResponse.json({ data: row });
     }
-    const row = await mutateResource(resource, "update", body, decodeURIComponent(id));
+    const row = await mutateResource(resource, "update", body, recordId);
+    if (resource === "orders") refreshOrderViews(recordId);
     return NextResponse.json({ data: row });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Gagal";

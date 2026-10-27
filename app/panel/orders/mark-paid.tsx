@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { startTransition, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-export function MarkPaidButton({ orderId, invoice }: { orderId: string; invoice: string }) {
+export function MarkPaidButton({ orderId, invoice, onDone }: { orderId: string; invoice: string; onDone?: () => void }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
@@ -25,7 +25,10 @@ export function MarkPaidButton({ orderId, invoice }: { orderId: string; invoice:
       return;
     }
     toast.success(`${invoice} ditandai lunas`);
-    router.refresh();
+    onDone?.();
+    startTransition(() => {
+      router.refresh();
+    });
   }
 
   function ask() {

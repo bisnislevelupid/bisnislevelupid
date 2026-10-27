@@ -44,6 +44,23 @@ const STATUS_TEXT: Record<string, string> = {
   WEBHOOK: "Webhook",
 };
 
+/** Tiga digit terakhir nominal unik. 0 berarti tidak ada kode. */
+export function uniqueTransferCode(uniqueAmount: unknown) {
+  if (uniqueAmount == null || uniqueAmount === "") return null;
+  const amount = Number(uniqueAmount);
+  if (!Number.isFinite(amount)) return null;
+  const code = Math.abs(Math.round(amount)) % 1000;
+  return code === 0 ? null : code;
+}
+
+/** Tiga digit unik di belakang nominal, bukan total transfer. */
+export function uniqueTransferLabel(total: unknown, uniqueAmount: unknown) {
+  const grand = formatRupiah(total as number | string | null | undefined);
+  const code = uniqueTransferCode(uniqueAmount);
+  if (code == null) return grand;
+  return `${grand} (unik ${formatRupiah(code)})`;
+}
+
 export function formatRupiah(value: number | string | null | undefined) {
   if (value == null || value === "") return "—";
   const n = Number(value);

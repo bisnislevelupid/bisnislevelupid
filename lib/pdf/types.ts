@@ -32,6 +32,7 @@ export type ReportSection = {
   commonMistakes: string | null;
   strengthReading: string | null;
   gapReading: string | null;
+  video: { title: string; url: string } | null;
   strengths: Array<{ number: number; text: string; isKey: boolean }>;
   gaps: ReportGap[];
 };
@@ -64,6 +65,9 @@ export type ReportDocument = {
   gateDesc: string | null;
   passingScore: number;
   respondent: string | null;
+  salutation: string | null;
+  pdfVersion: number;
+  coach: { name: string; roleLine: string; bio: string } | null;
   company: string | null;
   businessField: string | null;
   startYear: number | null;

@@ -988,7 +988,7 @@ INSERT INTO notification_templates (event_trigger, channel, subject, message_con
 <div style="color:#ffffff;font-size:24px;line-height:1.3;font-weight:700;margin-top:6px;">{audit_name}</div>
 </div>
 <div style="padding:28px;">
-<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Halo {nama},</p>
+<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Halo {sapaan},</p>
 <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155;">Audit sudah selesai pada {selesai}. Laporan PDF multi-halaman terlampir di email ini. Tautan unduh membuka akun Anda.</p>
 <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155;">{status_arti}</p>
 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;margin:0 0 12px;">
@@ -1005,7 +1005,7 @@ INSERT INTO notification_templates (event_trigger, channel, subject, message_con
 </div>
 <div style="background:#f8fafc;padding:16px 28px;color:#64748b;font-size:12px;line-height:1.5;">Audit fase bisnis untuk pengusaha Indonesia. Email ini terkait pesanan atau hasil tes di akun Anda.</div>
 </div>$report_email$),
-('TEST_RESULT', 'WA', NULL, $report_wa$Halo {nama},
+('TEST_RESULT', 'WA', NULL, $report_wa$Halo {sapaan},
 
 Audit *{audit_name}* sudah selesai pada {selesai}.
 

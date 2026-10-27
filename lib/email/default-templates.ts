@@ -40,7 +40,7 @@ export const ORDER_PAID_HTML = shell(
 export const TEST_RESULT_HTML = shell(
   "Hasil diagnosis",
   "{audit_name}",
-  `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Halo {nama},</p>
+  `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Halo {sapaan},</p>
 <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155;">Audit sudah selesai pada {selesai}. Laporan PDF multi-halaman terlampir di email ini. Tautan unduh membuka akun Anda.</p>
 <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155;">{status_arti}</p>
 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;margin:0 0 12px;">

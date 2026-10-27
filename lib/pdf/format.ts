@@ -6,6 +6,11 @@ export const SIAP_NAIK_RISK_NOTE =
 export const OTHER_RISK_NOTE =
   "Seksi dengan skor di bawah 50% adalah area risiko. Titik lemah ini perlu dibereskan, apa pun status keseluruhan audit.";
 
+export function sapaanOrAnda(value: string | null | undefined) {
+  const trimmed = value?.replace(/\s+/g, " ").trim() ?? "";
+  return trimmed || "Anda";
+}
+
 export function formatPercent(score: number) {
   return `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(score)}%`;
 }

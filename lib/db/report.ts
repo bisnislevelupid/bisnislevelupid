@@ -245,9 +245,22 @@ export async function getReportDocument(customerId: string, sessionId: string, o
         commonMistakes: edu?.common_mistakes ?? null,
         strengthReading: edu?.strength_reading ?? null,
         gapReading: edu?.gap_reading ?? null,
+        video: null,
         strengths: [],
         gaps: [],
       });
+    }
+    const videoRows = await optionalRows<{ section_code: string; youtube_url: string; title: string }>(
+      pool,
+      `SELECT section_code, youtube_url, title
+       FROM section_videos
+       WHERE audit_code = $1 AND is_active = true AND youtube_url LIKE 'https://www.youtube.com/watch?v=%'`,
+      [row.audit_code],
+    );
+    for (const video of videoRows) {
+      const section = sections.get(video.section_code);
+      if (!section || !video.youtube_url || !video.title) continue;
+      section.video = { url: video.youtube_url, title: video.title };
     }
 
     const skippedKeys: ReportDocument["skippedKeys"] = [];
@@ -369,6 +382,21 @@ export async function getReportDocument(customerId: string, sessionId: string, o
       });
     const indicators = await loadSessionIndicators(pool, sessionId, row.audit_code, Number(row.passing_score));
     const whatsapp = await getSupportWhatsapp(pool);
+    const versionRows = await optionalRows<{ pdf_version: number | null }>(
+      pool,
+      `SELECT pdf_version FROM test_results WHERE session_id = $1`,
+      [sessionId],
+    );
+    const sapaanRows = await optionalRows<{ nama_sapaan: string | null }>(
+      pool,
+      `SELECT nama_sapaan FROM customers WHERE id = $1`,
+      [customerId],
+    );
+    const coachRows = await optionalRows<{ name: string; role_line: string; bio: string }>(
+      pool,
+      `SELECT name, role_line, bio FROM report_coaches WHERE is_active = true ORDER BY id LIMIT 1`,
+    );
+    const pdfVersion = Number(versionRows[0]?.pdf_version ?? 1) || 1;
     const overall = row.status === "TIDAK_DAPAT_DINILAI" || row.overall_score === null ? null : Number(row.overall_score);
 
     return {
@@ -378,6 +406,11 @@ export async function getReportDocument(customerId: string, sessionId: string, o
       gateDesc: row.gate_desc,
       passingScore: Number(row.passing_score),
       respondent: row.respondent_name,
+      salutation: sapaanRows[0]?.nama_sapaan?.trim() || null,
+      pdfVersion,
+      coach: coachRows[0]
+        ? { name: coachRows[0].name, roleLine: coachRows[0].role_line, bio: coachRows[0].bio }
+        : null,
       company: row.company_name,
       businessField: row.business_field,
       startYear: row.business_start_year,

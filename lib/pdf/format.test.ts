@@ -7,9 +7,16 @@ import {
   formatAuditScore,
   isRiskSection,
   riskAreaNote,
+  sapaanOrAnda,
   scoreBasisLine,
   sectionScoreView,
 } from "./format";
+
+test("sapaan kosong menjadi Anda", () => {
+  assert.equal(sapaanOrAnda(null), "Anda");
+  assert.equal(sapaanOrAnda("  "), "Anda");
+  assert.equal(sapaanOrAnda("Pak Irvan"), "Pak Irvan");
+});
 
 test("dasar skor hanya butir non-kunci, Tidak Berlaku di luar penyebut", () => {
   assert.equal(KEY_NA_NOTE, "Butir ini dilewati karena kondisinya tidak berlaku untuk bisnis Anda.");

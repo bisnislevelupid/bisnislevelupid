@@ -66,6 +66,7 @@ export const PANEL_SECTIONS: {
       { label: "Bank soal", href: "/panel/test_questions", icon: "HelpCircle" },
       { label: "Library rekomendasi", href: "/panel/recommendation_library", icon: "BookOpen" },
       { label: "Pemicu rekomendasi", href: "/panel/recommendation_triggers", icon: "Zap" },
+      { label: "Narasi seksi", href: "/panel/narasi-seksi", icon: "BookOpen" },
     ],
   },
   {

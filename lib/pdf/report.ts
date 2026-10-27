@@ -13,6 +13,7 @@ import {
   formatPercent,
   isRiskSection,
   riskAreaNote,
+  sapaanOrAnda,
   scoreBasisLine,
 } from "@/lib/pdf/format";
 import type { ReportDocument, ReportGap, ReportSection } from "@/lib/pdf/types";
@@ -72,6 +73,45 @@ const SIMULASI_PRODUCTS = [
     path: "/checkout?product=audit-coaching",
   },
 ] as const;
+
+function greeting(report: ReportDocument) {
+  return `Halo ${sapaanOrAnda(report.salutation)},`;
+}
+
+function coachName(report: ReportDocument) {
+  const raw = report.coach?.name?.trim() || "Riza Zacharias";
+  if (report.status === "TIDAK_DAPAT_DINILAI") return raw.replace(/^SIMULASI\s+/i, "") || "Riza Zacharias";
+  return raw;
+}
+
+function coachRole(report: ReportDocument) {
+  return report.coach?.roleLine?.trim() || "Owner Syaamil Group";
+}
+
+function coachBio(report: ReportDocument) {
+  return report.coach?.bio?.trim() || "30+ tahun di dunia bisnis. 5 Fase Bisnis, 4 instrumen audit. Audit Bisnis. Temukan Fasemu. Naik Level.";
+}
+
+function pricedOffers(report: ReportDocument) {
+  const origin = report.origin.replace(/\/$/, "");
+  const seeded = report.upsells.filter((item) => /\bSIMULASI\b/i.test(item.name) && item.price > 0);
+  if (seeded.length) {
+    return seeded.map((item) => ({
+      name: item.name,
+      detail: item.summary || "Produk simulasi. Bukan penawaran mengikat.",
+      priceLine: `Harga SIMULASI ${rupiah(item.price)}`,
+      url: item.href,
+      button: item.ctaLabel || "Buka halaman",
+    }));
+  }
+  return SIMULASI_PRODUCTS.map((product) => ({
+    name: product.name,
+    detail: product.detail,
+    priceLine: `Harga SIMULASI ${rupiah(product.price)}`,
+    url: `${origin}${product.path}`,
+    button: "Buka halaman",
+  }));
+}
 
 type Canvas = {
   doc: Doc;
@@ -345,8 +385,8 @@ function paintCover(doc: Doc, report: ReportDocument) {
 
   drawAvatar(doc, 96, sheetY + 78, 46);
   coverLine(doc, "Coach dan penyusun metodologi", 156, sheetY + 28, 9, EMERALD_TEXT, 360, "Label");
-  coverLine(doc, "Riza Zacharias", 156, sheetY + 44, 16, INK, 360, "Heading");
-  coverLine(doc, "Owner Syaamil Group", 156, sheetY + 68, 11, SLATE, 360, "BodyBold");
+  coverLine(doc, coachName(report), 156, sheetY + 44, 16, INK, 360, "Heading");
+  coverLine(doc, coachRole(report), 156, sheetY + 68, 11, SLATE, 360, "BodyBold");
   coverLine(doc, "30+ tahun di dunia bisnis · 5 Fase Bisnis · 4 instrumen audit", 156, sheetY + 86, 10, MUTED, 360, "Body");
 
   const left = 48;
@@ -364,6 +404,7 @@ function paintCover(doc: Doc, report: ReportDocument) {
   if (gate) coverLine(doc, gate, left, sheetY + 272, 11, INK, inner, "BodyBold");
   coverLine(doc, "Audit Bisnis. Temukan Fasemu. Naik Level.", left, sheetY + 304, 10, EMERALD_TEXT, inner, "Label");
   coverLine(doc, report.auditName, left, sheetY + 322, 10, MUTED, inner, "Body");
+  coverLine(doc, greeting(report), left, sheetY + 340, 12, INK, inner, "BodyBold");
 }
 
 function callout(canvas: Canvas, title: string, body: string, fill: string, accent: string, titleColor: string) {
@@ -598,8 +639,8 @@ function paintCta(canvas: Canvas, report: ReportDocument) {
     }
   } else {
     para(canvas, "Harga pada halaman ini berlabel SIMULASI. Angka mengikuti katalog yang sudah ada dan bukan penawaran mengikat.");
-    for (const product of SIMULASI_PRODUCTS) {
-      productCard(canvas, product.name, product.detail, `Harga SIMULASI ${rupiah(product.price)}`, `${origin}${product.path}`, "Buka halaman");
+    for (const product of pricedOffers(report)) {
+      productCard(canvas, product.name, product.detail, product.priceLine, product.url, product.button);
     }
     const offer = foundationFor(report.auditCode);
     productCard(
@@ -615,7 +656,7 @@ function paintCta(canvas: Canvas, report: ReportDocument) {
   const doc = canvas.doc;
   const x = doc.page.margins.left;
   const w = contentWidth(doc);
-  const profile = "Riza Zacharias, Owner Syaamil Group. 30+ tahun di dunia bisnis. 5 Fase Bisnis, 4 instrumen audit. Audit Bisnis. Temukan Fasemu. Naik Level.";
+  const profile = `${coachName(report)}, ${coachRole(report)}. ${coachBio(report)}`;
   doc.font("Body").fontSize(10.5);
   const profileH = doc.heightOfString(profile, { width: w - 88, lineGap: 2 });
   const box = Math.max(78, profileH + 24);
@@ -641,6 +682,7 @@ function paint(canvas: Canvas, report: ReportDocument) {
 
   freshPage(canvas, "Bab 1. Ringkasan");
   h1(canvas, "Bab 1. Ringkasan");
+  para(canvas, greeting(report));
   para(canvas, label.meaning);
   gauge(canvas, report);
   para(canvas, scoreBasisLine(report));
@@ -724,6 +766,10 @@ function paint(canvas: Canvas, report: ReportDocument) {
     const note = section.score === null ? "Tidak ada butir biasa yang dinilai di seksi ini. Bukan nol persen." : keyNote;
     miniBar(canvas, "Skor butir biasa", section.score, note);
     if (isRiskSection(section.score)) callout(canvas, "AREA RISIKO", riskAreaNote(report.status), RISK_BG, DANGER, DANGER_TEXT);
+    if (section.video) {
+      para(canvas, `Video dari kanal @JalanLangitRiza: ${section.video.title}`);
+      pill(canvas, "Tonton video", section.video.url);
+    }
     if (section.description) para(canvas, section.description);
     if (section.measures) callout(canvas, "Apa yang diukur", section.measures, MINT, EMERALD, EMERALD_TEXT);
     if (section.whyItMatters) para(canvas, section.whyItMatters);

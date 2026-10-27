@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { withPool } from "@/lib/db";
+import { storedSapaan } from "@/lib/validations/customer";
 import { provisionPaidSessions } from "@/lib/db/orders";
 import { lookupAuditNames } from "@/lib/db/public";
 import { fillPlaceholders, rupiah, sanitizeEmailHtml } from "@/lib/email/html";
@@ -74,6 +75,7 @@ export async function placeOrder(input: {
   employeeRange: string;
   monthlyRevenue: string;
   ownerRole: string;
+  namaSapaan?: string;
   paymentMethodId: string;
   coupon?: string;
   origin: string;
@@ -145,6 +147,7 @@ export async function placeOrder(input: {
 
       let customerId = input.customerId;
       let orderEmail = input.email.toLowerCase();
+      const sapaan = storedSapaan(input.namaSapaan);
       if (customerId) {
         const account = await client.query(
           `SELECT id, email FROM customers WHERE id = $1 AND deleted_at IS NULL AND status = 'ACTIVE'`,
@@ -154,23 +157,23 @@ export async function placeOrder(input: {
         customerId = account.rows[0].id as string;
         orderEmail = String(account.rows[0].email).toLowerCase();
         await client.query(
-          `UPDATE customers SET name=$1, phone=$2, business_name=$3, business_field=$4, business_city=$5, business_start_year=$6, employee_range=$7, monthly_revenue=$8, owner_role=$9, updated_at=NOW() WHERE id=$10`,
-          [input.name, input.phone, input.businessName, input.businessField, input.businessCity, input.businessStartYear, input.employeeRange, input.monthlyRevenue, input.ownerRole, customerId],
+          `UPDATE customers SET name=$1, phone=$2, business_name=$3, business_field=$4, business_city=$5, business_start_year=$6, employee_range=$7, monthly_revenue=$8, owner_role=$9, nama_sapaan=$10, updated_at=NOW() WHERE id=$11`,
+          [input.name, input.phone, input.businessName, input.businessField, input.businessCity, input.businessStartYear, input.employeeRange, input.monthlyRevenue, input.ownerRole, sapaan, customerId],
         );
       } else {
         const existing = await client.query(`SELECT id FROM customers WHERE email = $1`, [orderEmail]);
         customerId = existing.rows[0]?.id as string | undefined;
         if (!customerId) {
           const created = await client.query(
-            `INSERT INTO customers (name, email, phone, business_name, business_field, business_city, business_start_year, employee_range, monthly_revenue, owner_role)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-            [input.name, orderEmail, input.phone, input.businessName, input.businessField, input.businessCity, input.businessStartYear, input.employeeRange, input.monthlyRevenue, input.ownerRole],
+            `INSERT INTO customers (name, email, phone, business_name, business_field, business_city, business_start_year, employee_range, monthly_revenue, owner_role, nama_sapaan)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+            [input.name, orderEmail, input.phone, input.businessName, input.businessField, input.businessCity, input.businessStartYear, input.employeeRange, input.monthlyRevenue, input.ownerRole, sapaan],
           );
           customerId = created.rows[0].id as string;
         } else {
           await client.query(
-            `UPDATE customers SET name=$1, phone=$2, business_name=$3, business_field=$4, business_city=$5, business_start_year=$6, employee_range=$7, monthly_revenue=$8, owner_role=$9, updated_at=NOW() WHERE id=$10`,
-            [input.name, input.phone, input.businessName, input.businessField, input.businessCity, input.businessStartYear, input.employeeRange, input.monthlyRevenue, input.ownerRole, customerId],
+            `UPDATE customers SET name=$1, phone=$2, business_name=$3, business_field=$4, business_city=$5, business_start_year=$6, employee_range=$7, monthly_revenue=$8, owner_role=$9, nama_sapaan=$10, updated_at=NOW() WHERE id=$11`,
+            [input.name, input.phone, input.businessName, input.businessField, input.businessCity, input.businessStartYear, input.employeeRange, input.monthlyRevenue, input.ownerRole, sapaan, customerId],
           );
         }
       }

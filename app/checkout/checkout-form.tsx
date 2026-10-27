@@ -25,6 +25,7 @@ type Profile = {
   employeeRange: string;
   monthlyRevenue: string;
   ownerRole: string;
+  namaSapaan: string;
 };
 
 type Method = {
@@ -96,6 +97,7 @@ export function CheckoutForm({
     employeeRange: profile?.employeeRange ?? "",
     monthlyRevenue: profile?.monthlyRevenue ?? "",
     ownerRole: profile?.ownerRole ?? "",
+    namaSapaan: profile?.namaSapaan ?? "",
   });
   const [fieldError, setFieldError] = useState<Record<string, string>>({});
   const [coupon, setCoupon] = useState("");
@@ -171,6 +173,7 @@ export function CheckoutForm({
         employeeRange: saved.employeeRange || profile?.employeeRange || prev.employeeRange,
         monthlyRevenue: saved.monthlyRevenue || profile?.monthlyRevenue || prev.monthlyRevenue,
         ownerRole: saved.ownerRole || profile?.ownerRole || prev.ownerRole,
+        namaSapaan: saved.namaSapaan || profile?.namaSapaan || prev.namaSapaan,
       }));
       if (saved.auditCode && instruments.some((item) => item.code === saved.auditCode)) {
         setAuditCode(saved.auditCode);
@@ -230,6 +233,9 @@ export function CheckoutForm({
     if (!fields.employeeRange) next.employeeRange = "Pilih jumlah tim";
     if (!fields.monthlyRevenue) next.monthlyRevenue = "Pilih kisaran omzet";
     if (!fields.ownerRole) next.ownerRole = "Pilih peran Anda";
+    if (fields.namaSapaan.trim() && !/^[\p{L}][\p{L}'’. -]{1,79}$/u.test(fields.namaSapaan.trim())) {
+      next.namaSapaan = "Nama sapaan 2–80 huruf, contoh Pak Irvan";
+    }
     if (isSingleAudit(product) && !instruments.some((item) => item.code === auditCode)) {
       next.auditCode = "Pilih instrumen audit";
     }
@@ -291,6 +297,7 @@ export function CheckoutForm({
         employeeRange: fields.employeeRange,
         monthlyRevenue: fields.monthlyRevenue,
         ownerRole: fields.ownerRole,
+        namaSapaan: fields.namaSapaan.trim(),
         paymentMethodId: methodId,
         coupon: applied || undefined,
         auditCode: isSingleAudit(product) ? auditCode : undefined,
@@ -366,6 +373,15 @@ export function CheckoutForm({
             </h3>
             <div className="checkout-pair" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <Field label="Nama Lengkap *" name="name" value={fields.name} error={fieldError.name} onChange={(v) => setField("name", v)} pattern={patterns.name.source} />
+              <Field
+                label="Nama sapaan"
+                name="namaSapaan"
+                value={fields.namaSapaan}
+                error={fieldError.namaSapaan}
+                optional
+                hint="Opsional. Contoh Pak Irvan. Kosong berarti laporan dan email menyapa Anda."
+                onChange={(v) => setField("namaSapaan", v)}
+              />
               <Field
                 label="Email Aktif (untuk Laporan PDF) *"
                 name="email"
@@ -619,6 +635,7 @@ function Field({
   error,
   pattern,
   readOnly = false,
+  optional = false,
   hint,
   onChange,
 }: {
@@ -629,6 +646,7 @@ function Field({
   error?: string;
   pattern?: string;
   readOnly?: boolean;
+  optional?: boolean;
   hint?: string;
   onChange: (value: string) => void;
 }) {
@@ -638,7 +656,7 @@ function Field({
       <input
         name={name}
         type={type}
-        required
+        required={!optional}
         pattern={pattern}
         readOnly={readOnly}
         aria-readonly={readOnly || undefined}

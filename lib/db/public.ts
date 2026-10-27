@@ -94,7 +94,12 @@ export type CheckoutProfile = {
   employeeRange: string;
   monthlyRevenue: string;
   ownerRole: string;
+  namaSapaan: string;
 };
+
+function missingColumn(error: unknown) {
+  return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "42703");
+}
 
 function displayPhone(value: string | null) {
   if (!value) return "";
@@ -107,13 +112,27 @@ function displayPhone(value: string | null) {
 export async function getCheckoutProfile(customerId: string): Promise<CheckoutProfile | null> {
   if (!/^\d+$/.test(customerId)) return null;
   return withPool(async (pool) => {
-    const { rows } = await pool.query(
-      `SELECT name, email, phone, business_name, business_field, business_city,
-              business_start_year::text, employee_range, monthly_revenue, owner_role
-       FROM customers
-       WHERE id = $1 AND deleted_at IS NULL AND status = 'ACTIVE'`,
-      [customerId],
-    );
+    let rows: Array<Record<string, unknown>>;
+    try {
+      const result = await pool.query(
+        `SELECT name, email, phone, business_name, business_field, business_city,
+                business_start_year::text, employee_range, monthly_revenue, owner_role, nama_sapaan
+         FROM customers
+         WHERE id = $1 AND deleted_at IS NULL AND status = 'ACTIVE'`,
+        [customerId],
+      );
+      rows = result.rows;
+    } catch (error) {
+      if (!missingColumn(error)) throw error;
+      const result = await pool.query(
+        `SELECT name, email, phone, business_name, business_field, business_city,
+                business_start_year::text, employee_range, monthly_revenue, owner_role
+         FROM customers
+         WHERE id = $1 AND deleted_at IS NULL AND status = 'ACTIVE'`,
+        [customerId],
+      );
+      rows = result.rows;
+    }
     const row = rows[0];
     if (!row) return null;
     return {
@@ -127,6 +146,7 @@ export async function getCheckoutProfile(customerId: string): Promise<CheckoutPr
       employeeRange: String(row.employee_range ?? ""),
       monthlyRevenue: String(row.monthly_revenue ?? ""),
       ownerRole: String(row.owner_role ?? ""),
+      namaSapaan: String(row.nama_sapaan ?? ""),
     };
   });
 }

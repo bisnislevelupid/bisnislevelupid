@@ -6,8 +6,9 @@ import { fillPlaceholders, rupiah } from "@/lib/email/html";
 import { rememberPdf } from "@/lib/db/portal";
 import { getReportDocument, getSupportWhatsapp } from "@/lib/db/report";
 import { buildReportPdf } from "@/lib/pdf/report";
+import { sendsNewPdf } from "@/lib/pdf/version";
 import { lookupAuditNames } from "@/lib/db/public";
-import { formatAuditScore } from "@/lib/pdf/format";
+import { formatAuditScore, sapaanOrAnda } from "@/lib/pdf/format";
 import { buildReportCtas, ctaEmailHtml, ctaPlainText } from "@/lib/portal/ctas";
 import { codesFromUnlocked, formatWib, statusLabel } from "@/lib/portal/labels";
 
@@ -138,7 +139,7 @@ export async function notifyOrderPaid(invoice: string, origin: string) {
 
 export async function notifyTestResult(customerId: string, sessionId: string, origin: string) {
   const report = await getReportDocument(customerId, sessionId, { origin });
-  if (!report) return;
+  if (!report || !sendsNewPdf(report.pdfVersion)) return;
   const contact = await withPool(async (pool) => {
     const { rows } = await pool.query(
       `SELECT c.email, c.name, c.phone FROM customers c WHERE c.id = $1`,
@@ -184,6 +185,7 @@ export async function notifyTestResult(customerId: string, sessionId: string, or
       sessionId,
       values: {
         nama: contact?.name ?? report.respondent ?? "",
+        sapaan: sapaanOrAnda(report.salutation),
         audit_name: report.auditName,
         skor: formatAuditScore(report.score, report.status),
         selesai: formatWib(report.completedAt) || "-",

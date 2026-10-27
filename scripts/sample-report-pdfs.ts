@@ -90,6 +90,7 @@ async function main() {
      ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name RETURNING id::text`,
   );
   const customerId = String(customer.rows[0].id);
+  await pool.query(`UPDATE customers SET nama_sapaan = 'Pak Irvan' WHERE id = $1`, [customerId]);
   const order = await pool.query(
     `INSERT INTO orders (invoice_code, customer_id, subtotal, total_amount, status, customer_name, customer_email, paid_at)
      VALUES ('INV-SAMPLE-PDF', $1, 0, 0, 'PAID', 'Sampel PDF', 'sample-pdf@bisnislevelup.test', NOW())
@@ -172,8 +173,8 @@ async function main() {
         `INSERT INTO test_results (
            session_id, customer_id, audit_transition_id, total_questions, total_key_questions,
            answered_ya, answered_tidak, answered_na, key_ya, key_tidak, overall_score, key_pass,
-           status, from_phase_id, to_phase_id, indicator_json
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb)
+           status, from_phase_id, to_phase_id, indicator_json, pdf_version
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,2)
          RETURNING id::text`,
         [
           sessionId,
@@ -221,6 +222,7 @@ async function main() {
         );
       }
     }
+    await pool.query(`UPDATE test_results SET pdf_version = 2 WHERE session_id = $1`, [sessionId]);
     const report = await getReportDocument(customerId, sessionId, { origin: "https://bisnislevelup.id" });
     if (!report) throw new Error(`Laporan kosong untuk ${scenario.marker}`);
     if (report.status !== scenario.statusHint) throw new Error(`${scenario.marker} terbaca ${report.status}`);

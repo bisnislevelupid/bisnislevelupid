@@ -5,7 +5,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { KEY_NA_NOTE, SIAP_NAIK_RISK_NOTE } from "./format";
+import { buildLegacyReportPdf } from "./report-legacy";
 import { buildReportPdf } from "./report";
+import { sendsNewPdf } from "./version";
 import type { ReportDocument, ReportSection } from "./types";
 
 function section(partial: Partial<ReportSection> & Pick<ReportSection, "code" | "name" | "score">): ReportSection {
@@ -24,6 +26,7 @@ function section(partial: Partial<ReportSection> & Pick<ReportSection, "code" | 
     commonMistakes: "Menjawab Ya karena pernah dilakukan sekali.",
     strengthReading: "Jawaban Ya berarti praktiknya sudah terlihat.",
     gapReading: "Jawaban Tidak di seksi ini menjadi urutan kerja.",
+    video: null,
     strengths: [],
     gaps: [],
     ...partial,
@@ -38,6 +41,9 @@ function document(overrides: Partial<ReportDocument> = {}): ReportDocument {
     gateDesc: "Model berulang dan uang terpisah.",
     passingScore: 80,
     respondent: "Sari",
+    salutation: null,
+    pdfVersion: 2,
+    coach: null,
     company: "Dapur Sari",
     businessField: "Katering",
     startYear: 2022,
@@ -137,7 +143,9 @@ test("PDF menyebut dasar skor, gerbang, area risiko, dan menyembunyikan panduan 
   assert.match(text, /Riza Zacharias/);
   assert.match(text, /Owner Syaamil Group/);
   assert.match(text, /Hal \d+\/\d+/);
+  assert.match(text, /Halo Anda/);
   assert.match(text, /Harga SIMULASI/);
+  assert.doesNotMatch(text, /youtube\.com/);
   assert.match(pdf.toString("latin1"), /AlbertSans/);
   assert.match(pdf.toString("latin1"), /Cabin/);
 });
@@ -192,6 +200,11 @@ test("belum dapat dinilai menampilkan rekomendasi edukatif tanpa upsell berbayar
           productCode: "audit-coaching",
         },
       ],
+      coach: {
+        name: "SIMULASI Riza Zacharias",
+        roleLine: "Owner Syaamil Group",
+        bio: "30+ tahun di dunia bisnis. 5 Fase Bisnis, 4 instrumen audit.",
+      },
     }),
     { compress: false },
   );
@@ -202,4 +215,43 @@ test("belum dapat dinilai menampilkan rekomendasi edukatif tanpa upsell berbayar
   assert.doesNotMatch(text, /Coaching 1:1/);
   assert.doesNotMatch(text, /Langkah belajar berikutnya/);
   assert.doesNotMatch(text, /SIMULASI/);
+});
+
+test("sapaan terisi dipakai di salam, kalimat risiko tetap", async () => {
+  const pdf = await buildReportPdf(document({ salutation: "Pak Irvan" }), { compress: false });
+  const text = pdfText(pdf).replace(/\s+/g, " ");
+  assert.match(text, /Halo Pak Irvan/);
+  assert.match(text, new RegExp(SIAP_NAIK_RISK_NOTE));
+});
+
+test("video seksi hanya tampil bila URL ada", async () => {
+  const pdf = await buildReportPdf(
+    document({
+      sections: [
+        section({
+          code: "B",
+          name: "Penjualan",
+          score: 40,
+          video: {
+            title: "Deal Maker",
+            url: "https://www.youtube.com/watch?v=aR1sN06FXmg",
+          },
+        }),
+      ],
+    }),
+    { compress: false },
+  );
+  const text = pdfText(pdf).replace(/\s+/g, " ");
+  assert.match(text, /Deal Maker/);
+  assert.match(text, /https:\/\/www\.youtube\.com\/watch\?v=aR1sN06FXmg/);
+});
+
+test("hasil lama memakai PDF teks dan tidak masuk antrean versi baru", () => {
+  const legacy = buildLegacyReportPdf(document({ pdfVersion: 1 }));
+  const raw = legacy.toString("latin1");
+  assert.match(raw, /^%PDF-1\.4/);
+  assert.match(raw, /BisnisLevelUp/);
+  assert.doesNotMatch(raw, /AlbertSans/);
+  assert.equal(sendsNewPdf(1), false);
+  assert.equal(sendsNewPdf(2), true);
 });

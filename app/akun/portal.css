@@ -76,6 +76,24 @@
 .audit-card p {
   overflow-wrap: anywhere;
 }
+@keyframes audit-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.audit-card-enter {
+  animation: audit-card-in 180ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .audit-card-enter {
+    animation: none;
+  }
+}
 @media (max-width: 900px) {
   .portal-sidebar {
     transform: translateX(-105%);

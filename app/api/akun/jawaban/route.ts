@@ -18,9 +18,21 @@ export async function POST(req: Request) {
     const body = schema.parse(await req.json());
     const result = await saveAnswer({ customerId: session.id, ...body });
     if (!result.ok) {
-      return NextResponse.json({ error: result.error, permanent: result.permanent }, { status: 400 });
+      return NextResponse.json(
+        { error: result.error, permanent: result.permanent, reason: result.reason },
+        { status: 400 },
+      );
     }
-    return NextResponse.json({ data: { saved: true, applied: result.applied } });
+    return NextResponse.json({
+      data: {
+        saved: true,
+        applied: result.applied,
+        reason: result.reason,
+        answer: result.answer,
+        note: result.note,
+        clientSeq: result.clientSeq,
+      },
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Jawaban tidak valid", permanent: true }, { status: 400 });

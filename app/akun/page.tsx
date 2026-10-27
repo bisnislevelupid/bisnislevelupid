@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getPesertaSession } from "@/lib/auth/session";
 import { getReport, listCatalog, listOwnedAudits, listPortalOrders, listReports } from "@/lib/db/portal";
+import { formatAuditScore } from "@/lib/pdf/format";
 import { rupiah, statusLabel } from "@/lib/portal/labels";
 import { suggestUpsells } from "@/lib/portal/upsell";
 
@@ -76,7 +77,7 @@ export default async function AkunHome() {
         <section style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 24, padding: 20 }}>
           <h2 style={{ marginTop: 0 }}>Laporan terakhir</h2>
           <p>
-            {reports[0].name} · {statusLabel(reports[0].status).title} · {reports[0].score}%
+            {reports[0].name} · {statusLabel(reports[0].status).title} · {formatAuditScore(reports[0].score, reports[0].status)}
           </p>
           <Link href={`/akun/laporan?sesi=${reports[0].session_id}`} style={{ fontWeight: 800, color: "#047857" }}>
             Buka diagnosis

@@ -1,5 +1,3 @@
-import type { ReportView } from "@/lib/db/portal";
-
 export type CatalogProduct = {
   code: string;
   name: string;
@@ -8,7 +6,14 @@ export type CatalogProduct = {
   type: string;
 };
 
-export function suggestUpsells(report: ReportView | null, products: CatalogProduct[], ownedCodes: string[]) {
+type UpsellReport = {
+  status: string;
+  auditCode: string;
+  sections: Array<{ name: string; tidak: number }>;
+  gaps: Array<{ isKey: boolean; text: string }>;
+};
+
+export function suggestUpsells(report: UpsellReport | null, products: CatalogProduct[], ownedCodes: string[]) {
   const picks: Array<{ product: CatalogProduct; reason: string }> = [];
   const take = (predicate: (product: CatalogProduct) => boolean, reason: string) => {
     const product = products.find((item) => predicate(item) && !picks.some((pick) => pick.product.code === item.code));
@@ -18,6 +23,7 @@ export function suggestUpsells(report: ReportView | null, products: CatalogProdu
     take((product) => product.type === "BUNDLE_AUDIT", "Mulai dari paket instrumen lengkap.");
     return picks.slice(0, 3);
   }
+  if (report.status === "TIDAK_DAPAT_DINILAI" || report.status === "PERLU_FONDASI") return [];
   const marketing = report.sections.find((section) => /market|penjualan|sales/i.test(section.name));
   if (marketing && marketing.tidak >= 3) take((product) => /market|coaching/i.test(product.name), "Gap penjualan cukup lebar.");
   if (report.gaps.some((gap) => gap.isKey && /bep|belanja|pribadi|keuangan/i.test(gap.text))) {

@@ -3,9 +3,12 @@ import { withPool } from "@/lib/db";
 import { provisionPaidSessionsByInvoice } from "@/lib/db/orders";
 import { dispatchTemplate } from "@/lib/email/send";
 import { fillPlaceholders, rupiah } from "@/lib/email/html";
-import { getReport, rememberPdf } from "@/lib/db/portal";
+import { rememberPdf } from "@/lib/db/portal";
+import { getReportDocument, getSupportWhatsapp } from "@/lib/db/report";
 import { buildReportPdf } from "@/lib/pdf/report";
 import { lookupAuditNames } from "@/lib/db/public";
+import { formatAuditScore } from "@/lib/pdf/format";
+import { buildReportCtas, ctaEmailHtml, ctaPlainText } from "@/lib/portal/ctas";
 import { codesFromUnlocked, formatWib, statusLabel } from "@/lib/portal/labels";
 
 const CHECKOUT_TYPES = new Set(["bank_transfer", "va", "retail_outlet"]);
@@ -134,7 +137,7 @@ export async function notifyOrderPaid(invoice: string, origin: string) {
 }
 
 export async function notifyTestResult(customerId: string, sessionId: string, origin: string) {
-  const report = await getReport(customerId, sessionId);
+  const report = await getReportDocument(customerId, sessionId, { origin });
   if (!report) return;
   const contact = await withPool(async (pool) => {
     const { rows } = await pool.query(
@@ -143,8 +146,9 @@ export async function notifyTestResult(customerId: string, sessionId: string, or
     );
     return rows[0] as { email: string; name: string; phone: string | null } | undefined;
   });
-  const pdf = buildReportPdf(report);
-  let pdfUrl = report.pdfUrl ?? `${origin}/api/akun/laporan/${sessionId}/pdf`;
+  const pdf = await buildReportPdf(report);
+  const downloadUrl = `${origin}/api/akun/laporan/${sessionId}/pdf`;
+  let publicUrl: string | null = null;
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     try {
       const stored = await put(`laporan/${sessionId}.pdf`, pdf, {
@@ -153,29 +157,49 @@ export async function notifyTestResult(customerId: string, sessionId: string, or
         addRandomSuffix: false,
         allowOverwrite: true,
       });
-      pdfUrl = stored.url;
-      await rememberPdf(sessionId, stored.url);
+      publicUrl = stored.url;
+      try {
+        await rememberPdf(sessionId, stored.url);
+      } catch (error) {
+        console.error("[pdf blob remember]", error);
+      }
     } catch (error) {
       console.error("[pdf blob]", error);
     }
   }
   const label = statusLabel(report.status);
-  await dispatchTemplate({
-    event: "TEST_RESULT",
-    to: contact?.email ?? null,
-    phone: contact?.phone ?? null,
-    fileUrl: pdfUrl.startsWith("https://") && !pdfUrl.includes("/api/") ? pdfUrl : null,
-    sessionId,
-    values: {
-      nama: contact?.name ?? report.respondent ?? "",
-      audit_name: report.auditName,
-      skor: String(report.score),
-      status: label.title,
-      pdf_url: pdfUrl,
-      dashboard_url: `${origin}/akun/laporan`,
-    },
-    attachments: [{ filename: `laporan-${sessionId}.pdf`, content: pdf }],
-  });
+  let whatsapp: string | null = null;
+  try {
+    whatsapp = await getSupportWhatsapp();
+  } catch (error) {
+    console.error("[support whatsapp]", error);
+  }
+  const ctas = buildReportCtas({ status: report.status, auditCode: report.auditCode, origin, whatsapp });
+  try {
+    await dispatchTemplate({
+      event: "TEST_RESULT",
+      to: contact?.email ?? null,
+      phone: contact?.phone ?? null,
+      fileUrl: publicUrl,
+      sessionId,
+      values: {
+        nama: contact?.name ?? report.respondent ?? "",
+        audit_name: report.auditName,
+        skor: formatAuditScore(report.score, report.status),
+        selesai: formatWib(report.completedAt) || "-",
+        status: label.title,
+        status_arti: label.meaning,
+        narasi_judul: report.narrative?.headline ?? label.title,
+        pdf_url: downloadUrl,
+        dashboard_url: `${origin}/akun/laporan?sesi=${sessionId}`,
+        cta_html: ctaEmailHtml(ctas.items),
+        cta_text: ctaPlainText(ctas.items),
+      },
+      attachments: [{ filename: `laporan-${sessionId}.pdf`, content: pdf }],
+    });
+  } catch (error) {
+    console.error("[test result notify]", error);
+  }
 }
 
 export function siteOrigin(fallback?: string | null) {

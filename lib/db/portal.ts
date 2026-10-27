@@ -1,5 +1,6 @@
 import { cachedJson } from "@/lib/cache";
 import { withPool } from "@/lib/db";
+import { sectionScoreView } from "@/lib/pdf/format";
 import { calculateResult, type AnswerCode, type AuditCode } from "@/lib/scoring";
 import { AUDIT_BY_PHASE, codesFromUnlocked } from "@/lib/portal/labels";
 import { lookupAuditNames } from "@/lib/db/public";
@@ -523,8 +524,8 @@ export async function submitSession(customerId: string, sessionId: string) {
         `INSERT INTO test_results (
            session_id, customer_id, audit_transition_id, total_questions, total_key_questions,
            answered_ya, answered_tidak, answered_na, key_ya, key_tidak, overall_score, key_pass,
-           status, from_phase_id, to_phase_id
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+           status, from_phase_id, to_phase_id, indicator_json
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::numeric,$12,$13,$14,$15,$16::jsonb)
          RETURNING id::text`,
         [
           sessionId,
@@ -537,11 +538,12 @@ export async function submitSession(customerId: string, sessionId: string) {
           counts.na,
           counts.keyYa,
           counts.keyTidak,
-          scored.score ?? 0,
+          scored.score,
           scored.kunciTidak === 0,
           scored.status,
           phase.rows[0].from_phase_id,
           phase.rows[0].to_phase_id,
+          JSON.stringify({ triad: scored.triad, agBlock: scored.agBlock }),
         ],
       );
       const resultId = inserted.rows[0].id as string;
@@ -567,7 +569,7 @@ export async function submitSession(customerId: string, sessionId: string) {
           `INSERT INTO result_section_scores (
              result_id, section_id, total_questions, total_key, ya_count, tidak_count, na_count,
              key_ya_count, key_tidak_count, score_pct, key_pass
-           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::numeric,$11)`,
           [
             resultId,
             section.id,
@@ -578,7 +580,7 @@ export async function submitSession(customerId: string, sessionId: string) {
             na,
             keyYa,
             keyTidak,
-            part?.scorePct ?? 0,
+            part?.scorePct,
             part?.keyPass ?? true,
           ],
         );
@@ -655,7 +657,7 @@ export type ReportView = {
   crisis: string | null;
   nextPhase: string | null;
   pdfUrl: string | null;
-  sections: Array<{ code: string; name: string; score: string; keyPass: boolean; tidak: number; color: string }>;
+  sections: Array<{ code: string; name: string; score: string | null; keyPass: boolean; tidak: number; color: string; assessed: boolean }>;
   gaps: Array<{ number: number; text: string; section: string; isKey: boolean }>;
   recommendations: Array<{ id: string; type: string; title: string; description: string | null; url: string | null; critical: boolean }>;
 };
@@ -700,7 +702,8 @@ export async function getReport(customerId: string, sessionId: string): Promise<
       | undefined;
     if (!row) return null;
     const sections = await pool.query(
-      `SELECT ts.code, ts.name, rss.score_pct::text, rss.key_pass, rss.tidak_count
+      `SELECT ts.code, ts.name, rss.score_pct::text, rss.key_pass, rss.tidak_count,
+              rss.ya_count, rss.key_ya_count, rss.key_tidak_count
        FROM result_section_scores rss
        JOIN test_sections ts ON ts.id = rss.section_id
        JOIN test_results r ON r.id = rss.result_id
@@ -745,15 +748,25 @@ export async function getReport(customerId: string, sessionId: string): Promise<
       crisis: row.crisis,
       nextPhase: row.next_phase,
       pdfUrl: row.pdf_url,
-      sections: (sections.rows as Array<{ code: string; name: string; score_pct: string; key_pass: boolean; tidak_count: number }>).map(
-        (section) => ({
-          code: section.code,
-          name: section.name,
-          score: section.score_pct,
-          keyPass: section.key_pass,
-          tidak: section.tidak_count,
-          color: Number(section.score_pct) >= 80 ? "#059669" : Number(section.score_pct) >= 60 ? "#d97706" : "#dc2626",
-        }),
+      sections: (sections.rows as Array<{ code: string; name: string; score_pct: string | null; key_pass: boolean; tidak_count: number; ya_count: number; key_ya_count: number; key_tidak_count: number }>).map(
+        (section) => {
+          const view = sectionScoreView({
+            score: section.score_pct,
+            ya: Number(section.ya_count),
+            tidak: Number(section.tidak_count),
+            keyYa: Number(section.key_ya_count),
+            keyTidak: Number(section.key_tidak_count),
+          });
+          return {
+            code: section.code,
+            name: section.name,
+            score: view.assessed ? section.score_pct : null,
+            keyPass: section.key_pass,
+            tidak: section.tidak_count,
+            color: view.color,
+            assessed: view.assessed,
+          };
+        },
       ),
       gaps: (gaps.rows as Array<{ question_number: number; question_text: string; is_key: boolean; section_name: string }>).map(
         (gap) => ({ number: gap.question_number, text: gap.question_text, section: gap.section_name, isKey: gap.is_key }),

@@ -1,20 +1,61 @@
 import type { ResultStatus } from "@/lib/scoring";
 
-export function statusLabel(status: ResultStatus | string) {
-  switch (status) {
-    case "SIAP_NAIK":
-      return { title: "Siap naik fase", tone: "Siap naik", color: "#059669", bg: "#ecfdf5" };
-    case "HAMPIR":
-      return { title: "Hampir", tone: "Perlu penguatan", color: "#b45309", bg: "#fffbeb" };
-    case "BELUM_SIAP":
-      return { title: "Gerbang belum terbuka", tone: "Belum siap", color: "#dc2626", bg: "#fef2f2" };
-    case "DALAM_BAHAYA":
-      return { title: "Dalam bahaya", tone: "Krisis kritis", color: "#b91c1c", bg: "#fef2f2" };
-    case "PERLU_FONDASI":
-      return { title: "Perlu fondasi", tone: "Skor di bawah 60", color: "#c2410c", bg: "#fff7ed" };
-    default:
-      return { title: "Tidak dapat dinilai", tone: "Data kurang", color: "#64748b", bg: "#f8fafc" };
-  }
+export type StatusCopy = {
+  title: string;
+  tone: string;
+  meaning: string;
+  color: string;
+  bg: string;
+};
+
+const COPY: Record<ResultStatus, StatusCopy> = {
+  DALAM_BAHAYA: {
+    title: "Dalam bahaya",
+    tone: "Krisis kritis",
+    meaning: "Tiga atau lebih butir kunci dijawab Tidak, dan skor butir biasa berada di bawah 50%. Ini krisis kritis, bukan sekadar gerbang yang belum terbuka.",
+    color: "#b91c1c",
+    bg: "#fef2f2",
+  },
+  BELUM_SIAP: {
+    title: "Gerbang belum terbuka",
+    tone: "Belum siap",
+    meaning: "Ada butir kunci yang dijawab Tidak. Skor butir biasa, setinggi apa pun, tidak menggantikan gerbang itu.",
+    color: "#dc2626",
+    bg: "#fef2f2",
+  },
+  SIAP_NAIK: {
+    title: "Siap naik fase",
+    tone: "Level up ready",
+    meaning: "Semua butir kunci yang dinilai dijawab Ya, dan skor butir biasa mencapai minimal 80% tanpa pembulatan.",
+    color: "#059669",
+    bg: "#ecfdf5",
+  },
+  HAMPIR: {
+    title: "Hampir",
+    tone: "Perlu penguatan",
+    meaning: "Semua butir kunci yang dinilai dijawab Ya, dan skor butir biasa berada di 60% sampai di bawah 80%.",
+    color: "#b45309",
+    bg: "#fffbeb",
+  },
+  PERLU_FONDASI: {
+    title: "🟠 Perlu Fondasi",
+    tone: "Pondasi pendukung",
+    meaning: "Gerbang utama sudah terbuka, tapi pondasi pendukungnya belum terbangun.",
+    color: "#c2410c",
+    bg: "#fff7ed",
+  },
+  TIDAK_DAPAT_DINILAI: {
+    title: "⚪ Belum Dapat Dinilai",
+    tone: "Jawaban tidak representatif",
+    meaning: "Terlalu banyak jawaban Tidak Berlaku, jadi hasilnya tidak representatif.",
+    color: "#475569",
+    bg: "#f8fafc",
+  },
+};
+
+export function statusLabel(status: ResultStatus | string): StatusCopy {
+  if (status in COPY) return COPY[status as ResultStatus];
+  return COPY.TIDAK_DAPAT_DINILAI;
 }
 
 export function rupiah(value: number | string) {

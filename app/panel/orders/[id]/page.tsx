@@ -2,21 +2,19 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderDetail } from "@/lib/admin/orders";
-import { rupiah } from "@/lib/portal/labels";
+import { formatRupiah, statusText } from "@/lib/admin/format";
+import { formatWib } from "@/lib/portal/labels";
 import { MarkPaidButton } from "../mark-paid";
+import { RejectOrderButton } from "../reject-order";
 
 export const dynamic = "force-dynamic";
 
-function when(value: unknown) {
-  if (!value) return "—";
-  return new Date(String(value)).toLocaleString("id-ID");
-}
-
 function statusTone(status: string) {
-  if (status === "PAID") return { bg: "#059669", label: "Lunas" };
+  if (status === "PAID") return { bg: "#059669", label: statusText(status) };
   if (status === "PENDING") return { bg: "#d97706", label: "Menunggu pembayaran" };
-  if (status === "EXPIRED") return { bg: "#64748b", label: "Kedaluwarsa" };
-  return { bg: "#0369a1", label: status };
+  if (status === "EXPIRED") return { bg: "#64748b", label: statusText(status) };
+  if (status === "CANCELLED") return { bg: "#b91c1c", label: statusText(status) };
+  return { bg: "#0369a1", label: statusText(status) };
 }
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,7 +24,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const order = detail.order;
   const status = String(order.status ?? "");
   const tone = statusTone(status);
-  const paid = status === "PAID";
+  const closed = status === "PAID" || status === "CANCELLED";
+  const manualTransfer = String(order.method_type ?? "") === "bank_transfer";
   return (
     <div>
       <Link href="/panel/orders" style={{ color: "#059669", fontWeight: 700 }}>← Semua pesanan</Link>
@@ -36,7 +35,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <h1 style={{ fontSize: "1.7rem", fontWeight: 800, margin: "2px 0 8px" }}>{String(order.invoice_code)}</h1>
           <span style={{ background: tone.bg, color: "#fff", borderRadius: 999, padding: "4px 12px", fontWeight: 700, fontSize: "0.8rem" }}>{tone.label}</span>
         </div>
-        {paid ? null : <MarkPaidButton orderId={String(order.id)} invoice={String(order.invoice_code)} />}
+        {closed ? null : (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <MarkPaidButton orderId={String(order.id)} invoice={String(order.invoice_code)} />
+            {manualTransfer ? <RejectOrderButton orderId={String(order.id)} invoice={String(order.invoice_code)} /> : null}
+          </div>
+        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginTop: 20 }}>
@@ -45,27 +49,29 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <Field label="Nama" value={String(order.customer_name ?? "—")} />
           <Field label="Email" value={String(order.customer_email ?? "—")} />
           <Field label="WhatsApp" value={String(order.customer_phone ?? "—")} />
-          <Field label="Dibuat" value={when(order.created_at)} />
+          <Field label="Dibuat" value={formatWib(order.created_at as string | null) || "—"} />
         </section>
         <section style={card}>
           <h2 style={heading}>Pembayaran</h2>
           <Field label="Metode" value={String(order.method_name ?? "—")} />
           <Field label="Nomor VA" value={String(order.va_number ?? "—")} />
           <Field label="Kode bayar" value={String(order.payment_code ?? "—")} />
-          <Field label="Batas bayar" value={when(order.expired_at)} />
-          <Field label="Waktu lunas" value={when(order.paid_at)} />
+          <Field label="Batas bayar" value={formatWib(order.expired_at as string | null) || "—"} />
+          <Field label="Waktu lunas" value={formatWib(order.paid_at as string | null) || "—"} />
+          {order.cancel_reason ? <Field label="Alasan batal" value={String(order.cancel_reason)} /> : null}
+          {order.cancelled_at ? <Field label="Dibatalkan" value={formatWib(order.cancelled_at as string | null) || "—"} /> : null}
         </section>
         <section style={{ ...card, background: "#f0fdf4", borderColor: "#a7f3d0" }}>
           <h2 style={heading}>Yang harus dibayar</h2>
-          <Field label="Subtotal" value={rupiah(String(order.subtotal ?? 0))} />
-          <Field label="Diskon" value={rupiah(String(order.discount_amount ?? 0))} />
-          <Field label="Biaya admin" value={rupiah(String(order.admin_fee ?? 0))} />
+          <Field label="Subtotal" value={formatRupiah(String(order.subtotal ?? 0))} />
+          <Field label="Diskon" value={formatRupiah(String(order.discount_amount ?? 0))} />
+          <Field label="Biaya admin" value={formatRupiah(String(order.admin_fee ?? 0))} />
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, paddingTop: 10, borderTop: "1px solid #a7f3d0" }}>
             <strong>Grand total</strong>
-            <strong style={{ color: "#059669", fontSize: "1.15rem" }}>{rupiah(String(order.total_amount ?? 0))}</strong>
+            <strong style={{ color: "#059669", fontSize: "1.15rem" }}>{formatRupiah(String(order.total_amount ?? 0))}</strong>
           </div>
           {order.unique_amount != null && String(order.unique_amount) !== "" ? (
-            <p style={{ margin: "8px 0 0", color: "#047857", fontSize: "0.85rem" }}>Nominal unik transfer: {rupiah(String(order.unique_amount))}</p>
+            <p style={{ margin: "8px 0 0", color: "#047857", fontSize: "0.85rem" }}>Nominal unik transfer: {formatRupiah(String(order.unique_amount))}</p>
           ) : null}
         </section>
       </div>
@@ -81,8 +87,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               <tr key={String(item.id)}>
                 <td style={td}>{String(item.product_name)}</td>
                 <td style={td}>{String(item.quantity)}</td>
-                <td style={td}>{rupiah(String(item.unit_price))}</td>
-                <td style={td}>{rupiah(String(item.total_price))}</td>
+                <td style={td}>{formatRupiah(String(item.unit_price))}</td>
+                <td style={td}>{formatRupiah(String(item.total_price))}</td>
               </tr>
             ))}
             {!detail.items.length ? <tr><td style={td} colSpan={4}>Tidak ada item.</td></tr> : null}
@@ -94,9 +100,13 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         <section style={{ ...card, marginTop: 16 }}>
           <h2 style={heading}>Bukti transfer</h2>
           <a href={String(order.transfer_proof_url)} target="_blank" rel="noreferrer">
+            {/* Bukti dari unggahan pembeli; host-nya tidak tetap, jadi tidak lewat next/image. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={String(order.transfer_proof_url)} alt="Bukti transfer" style={{ maxWidth: "100%", maxHeight: 420, borderRadius: 12, objectFit: "contain", background: "#f8fafc" }} />
+            <img src={String(order.transfer_proof_url)} alt={`Bukti transfer ${String(order.invoice_code)}`} style={{ maxWidth: "100%", maxHeight: 420, borderRadius: 12, objectFit: "contain", background: "#f8fafc" }} />
           </a>
+          <p style={{ margin: "8px 0 0" }}>
+            <a href={String(order.transfer_proof_url)} target="_blank" rel="noreferrer" style={{ color: "#059669", fontWeight: 700 }}>Buka file bukti</a>
+          </p>
         </section>
       ) : String(order.method_type ?? "") === "bank_transfer" ? (
         <section style={{ ...card, marginTop: 16 }}>
@@ -115,9 +125,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             {detail.logs.map((log) => (
               <tr key={String(log.id)}>
                 <td style={td}>{String(log.endpoint ?? "—")}</td>
-                <td style={td}>{String(log.type ?? "—")}</td>
+                <td style={td}>{statusText(String(log.type ?? ""))}</td>
                 <td style={td}>{String(log.http_status ?? "—")}</td>
-                <td style={td}>{when(log.created_at)}</td>
+                <td style={td}>{formatWib(log.created_at as string | null) || "—"}</td>
               </tr>
             ))}
             {!detail.logs.length ? <tr><td style={td} colSpan={4}>Belum ada catatan dari gateway atau webhook.</td></tr> : null}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import {
   BadgePlus,
@@ -105,14 +105,29 @@ function navItem(active: boolean): CSSProperties {
   };
 }
 
-export function PanelShell({ children, pending, adminName }: { children: React.ReactNode; pending: number; adminName: string }) {
+export function PanelShell({
+  children,
+  pending,
+  adminName,
+  statusLabel,
+  statusTitle,
+}: {
+  children: React.ReactNode;
+  pending: number;
+  adminName: string;
+  statusLabel: string;
+  statusTitle: string;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const section = sectionForPath(pathname);
-  const [expanded, setExpanded] = useState<string | null>(section?.href ?? null);
-  useEffect(() => {
-    if (section?.href) setExpanded(section.href);
-  }, [section?.href]);
+  const sectionHref = section?.href ?? null;
+  const [expanded, setExpanded] = useState<string | null>(sectionHref);
+  const [seenSection, setSeenSection] = useState(sectionHref);
+  if (seenSection !== sectionHref) {
+    setSeenSection(sectionHref);
+    if (sectionHref) setExpanded(sectionHref);
+  }
 
   return (
     <div className="admin-root" style={{ display: "flex", minHeight: "100vh", background: "#f8fafc", color: "#0f172a" }}>
@@ -235,9 +250,9 @@ export function PanelShell({ children, pending, adminName }: { children: React.R
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div className="admin-status" style={{ display: "flex", alignItems: "center", gap: 6, background: "#ecfdf5", color: "#059669", fontSize: "0.78rem", fontWeight: 700, padding: "4px 12px", borderRadius: 999, border: "1px solid #a7f3d0" }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#10b981" }} />
-              Server Online (Neon PG & Xendit Connected)
+            <div title={statusTitle} className="admin-status" style={{ display: "flex", alignItems: "center", gap: 6, background: "#ecfdf5", color: "#059669", fontSize: "0.75rem", fontWeight: 700, padding: "6px 12px", borderRadius: 999, border: "1px solid #a7f3d0", maxWidth: 520, lineHeight: 1.35 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#10b981", flex: "0 0 auto" }} />
+              {statusLabel}
             </div>
             <Link href="/" style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "7px 14px", fontSize: "0.82rem", fontWeight: 600 }}>
               Buka Web Utama

@@ -2,6 +2,8 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPaymentLog } from "@/lib/admin/managed";
+import { statusText } from "@/lib/admin/format";
+import { formatWib } from "@/lib/portal/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,8 @@ export default async function LogPembayaranDetail({ params }: { params: Promise<
     <div>
       <Link href="/panel/log-pembayaran" style={{ color: "#059669", fontWeight: 700 }}>← Log pembayaran</Link>
       <h1 style={{ fontSize: "1.4rem", fontWeight: 800, margin: "8px 0 16px" }}>{String(row.invoice_code ?? row.id)}</h1>
-      <p>Endpoint: {String(row.endpoint ?? "—")} · Tipe: {String(row.type ?? "—")} · HTTP {String(row.http_status ?? "—")}</p>
+      <p>Endpoint: {String(row.endpoint ?? "—")} · Tipe: {statusText(String(row.type ?? ""))} · HTTP {String(row.http_status ?? "—")}</p>
+      <p style={{ color: "#64748b" }}>{formatWib(row.created_at as string | null) || "—"}</p>
       <h2 style={{ marginTop: 16 }}>Request</h2>
       <pre style={pre}>{String(row.request_payload ?? "")}</pre>
       <h2>Response</h2>

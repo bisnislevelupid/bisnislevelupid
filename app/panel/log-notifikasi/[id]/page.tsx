@@ -2,6 +2,8 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getNotificationLog } from "@/lib/admin/managed";
+import { statusText } from "@/lib/admin/format";
+import { formatWib } from "@/lib/portal/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +16,10 @@ export default async function LogNotifikasiDetail({ params }: { params: Promise<
       <Link href="/panel/log-notifikasi" style={{ color: "#059669", fontWeight: 700 }}>← Log notifikasi</Link>
       <h1 style={{ fontSize: "1.4rem", fontWeight: 800, margin: "8px 0 16px" }}>{String(row.recipient)}</h1>
       <p>
-        {String(row.channel)} · {String(row.status)}
+        {String(row.channel)} · {statusText(String(row.status ?? ""))}
         {row.error_message ? ` · ${String(row.error_message)}` : ""}
       </p>
+      <p style={{ color: "#64748b" }}>Dibuat {formatWib(row.created_at as string | null) || "—"} · Terkirim {formatWib(row.sent_at as string | null) || "—"}</p>
       <h2 style={{ marginTop: 16 }}>Request</h2>
       <pre style={pre}>{String(row.request_payload ?? "")}</pre>
       <h2>Response</h2>

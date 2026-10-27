@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { listNotificationLogs } from "@/lib/admin/managed";
-import { DeleteButton } from "../_components/delete-button";
+import { statusColor, statusText } from "@/lib/admin/format";
+import { formatWib } from "@/lib/portal/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -10,23 +11,28 @@ export default async function LogNotifikasiPage() {
   return (
     <div>
       <h1 style={{ fontSize: "1.5rem", fontWeight: 800 }}>Log notifikasi</h1>
-      <p style={{ color: "#64748b", marginBottom: 16 }}>Riwayat kirim. Tidak bisa dibuat manual.</p>
+      <p style={{ color: "#64748b", marginBottom: 16 }}>Riwayat kirim. Tidak bisa ditambah, diubah, atau dihapus.</p>
       <div style={card}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>{["Penerima", "Kanal", "Status", "Invoice", "Waktu", ""].map((head) => <th key={head} style={th}>{head}</th>)}</tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {rows.length === 0 ? (
+              <tr><td style={td} colSpan={6}>Belum ada catatan notifikasi.</td></tr>
+            ) : rows.map((row) => (
               <tr key={String(row.id)}>
                 <td style={td}>{String(row.recipient)}</td>
                 <td style={td}>{String(row.channel)}</td>
-                <td style={td}>{String(row.status)}</td>
-                <td style={td}>{String(row.invoice_code ?? "—")}</td>
-                <td style={td}>{row.created_at ? new Date(String(row.created_at)).toLocaleString("id-ID") : "—"}</td>
                 <td style={td}>
-                  <Link href={`/panel/log-notifikasi/${row.id}`} style={{ marginRight: 8, color: "#059669", fontWeight: 700 }}>Detail</Link>
-                  <DeleteButton url={`/api/panel/notification_logs/${row.id}`} />
+                  <span style={{ background: statusColor(String(row.status ?? "")), color: "#fff", borderRadius: 999, padding: "3px 10px", fontSize: "0.72rem", fontWeight: 700 }}>
+                    {statusText(String(row.status ?? ""))}
+                  </span>
+                </td>
+                <td style={td}>{String(row.invoice_code ?? "—")}</td>
+                <td style={td}>{formatWib(row.created_at as string | null) || "—"}</td>
+                <td style={td}>
+                  <Link href={`/panel/log-notifikasi/${row.id}`} style={{ color: "#059669", fontWeight: 700 }}>Detail</Link>
                 </td>
               </tr>
             ))}

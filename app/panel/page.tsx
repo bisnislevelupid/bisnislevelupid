@@ -1,17 +1,14 @@
 import Link from "next/link";
 import { dashboardStats } from "@/lib/admin/crud";
-
-function rupiah(value: string | number) {
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value));
-}
+import { formatRupiah, statusColor, statusText } from "@/lib/admin/format";
 
 export default async function PanelHome() {
   const stats = await dashboardStats();
   const cards = [
-    { label: "Total Revenue Masuk", value: rupiah(stats.revenue), color: "#059669", note: "Order berstatus lunas" },
+    { label: "Total Revenue Masuk", value: formatRupiah(stats.revenue), color: "#059669", note: "Order berstatus lunas" },
     { label: "Transaksi Lunas (Paid)", value: `${stats.paid_orders} Order`, color: "#0f172a", note: "Konversi dari checkout" },
     { label: "Menunggu Konfirmasi", value: `${stats.pending_orders} Order`, color: "#d97706", note: "Menunggu transfer / VA" },
-    { label: "Total Customer", value: `${stats.customers} Peserta`, color: "#0f172a", note: "Akun yang sudah checkout" },
+    { label: "Total Customer", value: `${stats.customers} Peserta`, color: "#0f172a", note: "Akun customer terdaftar" },
   ];
   return (
     <div>
@@ -55,18 +52,18 @@ export default async function PanelHome() {
                     </Link>
                   </td>
                   <td style={{ padding: "12px 8px" }}><Link href={`/panel/orders/${row.id}`} style={{ color: "inherit" }}>{row.product_name}</Link></td>
-                  <td style={{ padding: "12px 8px" }}><Link href={`/panel/orders/${row.id}`} style={{ color: "inherit" }}>{rupiah(row.total_amount)}</Link></td>
+                  <td style={{ padding: "12px 8px" }}><Link href={`/panel/orders/${row.id}`} style={{ color: "inherit" }}>{formatRupiah(row.total_amount)}</Link></td>
                   <td style={{ padding: "12px 8px" }}><Link href={`/panel/orders/${row.id}`} style={{ color: "inherit" }}>{row.method_name}</Link></td>
                   <td style={{ padding: "12px 8px" }}>
                     <span style={{
-                      background: row.status === "PAID" ? "#059669" : "#d97706",
+                      background: statusColor(row.status),
                       color: "#fff",
                       borderRadius: 999,
                       padding: "3px 10px",
                       fontSize: "0.72rem",
                       fontWeight: 700,
                     }}>
-                      {row.status}
+                      {statusText(row.status)}
                     </span>
                   </td>
                   <td style={{ padding: "12px 8px" }}>

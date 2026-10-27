@@ -37,6 +37,25 @@ export function isAdminTable(value: string): value is AdminTable {
   return (ADMIN_TABLES as readonly string[]).includes(value);
 }
 
+/** Catatan yang ditulis sistem. Panel hanya boleh membaca. */
+export const READONLY_RESOURCES = new Set<AdminTable>([
+  "customer_sessions",
+  "order_items",
+  "payment_logs",
+  "notification_logs",
+  "test_sessions",
+  "test_answers",
+  "test_results",
+  "result_section_scores",
+  "result_recommendations",
+  "coupon_usage",
+  "affiliate_referrals",
+]);
+
+export function isReadonlyResource(value: string) {
+  return READONLY_RESOURCES.has(value as AdminTable);
+}
+
 export const PANEL_SECTIONS: {
   label: string;
   href: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import { statusColor, statusText } from "@/lib/admin/format";
 
 export type GridColumn<T> = {
   key: string;
@@ -44,17 +45,9 @@ export function exportExcel(filename: string, headers: string[], rows: string[][
 }
 
 export function StatusPill({ value }: { value: string }) {
-  const tone =
-    value === "PAID" || value === "ACTIVE" || value === "SENT"
-      ? "#059669"
-      : value === "PENDING" || value === "HAMPIR"
-        ? "#d97706"
-        : value === "FAILED" || value === "EXPIRED" || value === "INACTIVE"
-          ? "#dc2626"
-          : "#0369a1";
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", background: tone, color: "#fff", borderRadius: 999, padding: "3px 10px", fontSize: "0.72rem", fontWeight: 700 }}>
-      {value || "—"}
+    <span style={{ display: "inline-flex", alignItems: "center", background: statusColor(value), color: "#fff", borderRadius: 999, padding: "3px 10px", fontSize: "0.72rem", fontWeight: 700 }}>
+      {statusText(value)}
     </span>
   );
 }
@@ -180,7 +173,9 @@ export function DataGrid<T>({
             ))}
             {!slice.length ? (
               <tr>
-                <td style={td} colSpan={columns.length + 1}>Tidak ada data yang cocok.</td>
+                <td style={td} colSpan={columns.length + 1}>
+                  {terms.trim() || filters.some((filter) => filter.value.trim()) ? "Tidak ada data yang cocok." : "Belum ada data."}
+                </td>
               </tr>
             ) : null}
           </tbody>

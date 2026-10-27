@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCustomerProfile } from "@/lib/admin/crud";
+import { formatRupiah, statusText } from "@/lib/admin/format";
 
 const fields: { key: string; label: string }[] = [
   { key: "name", label: "Nama lengkap" },
@@ -64,8 +65,8 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               <tr key={String(order.invoice_code)} className="border-b border-border last:border-0">
                 <td className="px-4 py-3">{text(order.invoice_code)}</td>
                 <td className="px-4 py-3">{text(order.product_name)}</td>
-                <td className="px-4 py-3"><span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">{text(order.status)}</span></td>
-                <td className="px-4 py-3">{text(order.unique_amount ?? order.total_amount)}</td>
+                <td className="px-4 py-3"><span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">{statusText(text(order.status))}</span></td>
+                <td className="px-4 py-3">{formatRupiah((order.unique_amount ?? order.total_amount) as string | number | null)}</td>
               </tr>
             ))}
           </tbody>

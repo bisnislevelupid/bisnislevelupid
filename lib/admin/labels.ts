@@ -271,6 +271,40 @@ export const COLUMN_PRIORITY: Record<string, string[]> = {
   site_settings: ["key", "value", "updated_at"],
 };
 
+/** Satu peta kode → label untuk form dan daftar. Kode yang tidak ada di sini tampil apa adanya. */
+export const CODE_LABELS: Record<string, string> = {
+  SINGLE_AUDIT: "Audit satu fase",
+  BUNDLE_AUDIT: "Audit lengkap",
+  COACHING: "Coaching",
+  EBOOK: "E-book",
+  ORDER_CREATED: "Pesanan dibuat",
+  ORDER_PAID: "Pesanan lunas",
+  TEST_RESULT: "Hasil tes",
+  PAYMENT_REQUEST: "Permintaan bayar",
+  MANUAL_CANCEL: "Pembatalan manual",
+  WEBHOOK: "Webhook",
+  bank_transfer: "Transfer Bank",
+  va: "Virtual Account",
+  qr_code: "QRIS",
+  qris: "QRIS",
+  "E-Wallet": "E-Wallet",
+  ewallet: "E-Wallet",
+  retail_outlet: "Gerai Ritel",
+};
+
+export const PRODUCT_TYPES = ["SINGLE_AUDIT", "BUNDLE_AUDIT", "COACHING"] as const;
+export const NOTIFICATION_EVENTS = ["ORDER_CREATED", "ORDER_PAID", "TEST_RESULT"] as const;
+export const PAYMENT_METHOD_TYPES = ["bank_transfer", "va", "qr_code", "E-Wallet", "retail_outlet"] as const;
+
+export function codeLabel(value: string) {
+  if (!value) return "—";
+  return CODE_LABELS[value] ?? value;
+}
+
+export function codeChoices(values: readonly string[]) {
+  return values.map((value) => ({ value, label: CODE_LABELS[value] ?? value }));
+}
+
 const FIELD_OPTIONS: Record<string, { value: string; label: string }[]> = {
   trigger_on_answer: [
     { value: "YA", label: "Ya" },
@@ -348,11 +382,10 @@ export function fieldOptions(table: string, column: string) {
     return ACTIVE_STATUS;
   }
   if (column === "type" && (table === "products" || table === "upsell_items")) {
-    return [
-      { value: "SINGLE_AUDIT", label: "Audit satu fase" },
-      { value: "BUNDLE_AUDIT", label: "Audit lengkap" },
-      { value: "COACHING", label: "Coaching" },
-    ];
+    return codeChoices(PRODUCT_TYPES);
+  }
+  if (column === "event_trigger" && table === "notification_templates") {
+    return codeChoices(NOTIFICATION_EVENTS);
   }
   return FIELD_OPTIONS[column] ?? null;
 }

@@ -1,5 +1,6 @@
 import { listOrders } from "@/lib/admin/orders";
 import { uniqueTransferLabel } from "@/lib/admin/format";
+import { maskEmail, maskPhone } from "@/lib/admin/redact";
 import { formatWib } from "@/lib/portal/labels";
 import { OrderGrid, type OrderRow } from "./order-grid";
 
@@ -11,8 +12,8 @@ export default async function OrdersPage() {
     id: String(row.id),
     invoice: String(row.invoice_code ?? ""),
     buyer: String(row.customer_name ?? ""),
-    email: String(row.customer_email ?? ""),
-    phone: String(row.customer_phone ?? ""),
+    email: row.customer_email ? maskEmail(String(row.customer_email)) : "",
+    phone: row.customer_phone ? maskPhone(String(row.customer_phone)) : "",
     product: String(row.product_name ?? ""),
     method: String(row.method_name ?? ""),
     status: String(row.status ?? ""),

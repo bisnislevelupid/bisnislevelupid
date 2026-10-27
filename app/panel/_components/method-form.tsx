@@ -7,6 +7,7 @@ import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type D
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
+import { codeChoices, PAYMENT_METHOD_TYPES } from "@/lib/admin/labels";
 import { InstructionEditor } from "./instruction-editor";
 
 type Step = { key: string; id?: string; title: string; content: string };
@@ -93,8 +94,8 @@ export function MethodForm({ id, method, instructions }: { id?: string; method?:
         <label>Kode<span style={req}> *</span><input name="code" required defaultValue={method?.code} style={field} /></label>
         <label>Nama<span style={req}> *</span><input name="name" required defaultValue={method?.name} style={field} /></label>
         <label>Tipe<span style={req}> *</span>
-          <select name="type" required defaultValue={knownOr(TYPES, method?.type, "bank_transfer")} style={field}>
-            {options(TYPES, method?.type).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          <select name="type" required defaultValue={knownOr(codeChoices(PAYMENT_METHOD_TYPES), method?.type, "bank_transfer")} style={field}>
+            {options(codeChoices(PAYMENT_METHOD_TYPES), method?.type).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
         </label>
         <label>Provider<span style={req}> *</span>
@@ -194,14 +195,6 @@ function InstructionStep({
     </div>
   );
 }
-
-const TYPES = [
-  { value: "bank_transfer", label: "Transfer Bank" },
-  { value: "va", label: "Virtual Account" },
-  { value: "qr_code", label: "QRIS" },
-  { value: "E-Wallet", label: "E-Wallet" },
-  { value: "retail_outlet", label: "Gerai Ritel" },
-];
 
 const PROVIDERS = [
   { value: "Manual", label: "Manual" },

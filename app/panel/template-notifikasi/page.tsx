@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { listTemplates } from "@/lib/admin/managed";
+import { codeLabel } from "@/lib/admin/labels";
 import { DeleteButton } from "../_components/delete-button";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export default async function TemplatePage() {
           <tbody>
             {rows.map((row) => (
               <tr key={String(row.id)}>
-                <td style={td}>{String(row.event_trigger)}</td>
+                <td style={td}>{codeLabel(String(row.event_trigger ?? ""))}</td>
                 <td style={td}>{String(row.channel)}</td>
                 <td style={td}>{String(row.subject ?? "—")}</td>
                 <td style={td}>{row.is_active ? "Ya" : "Tidak"}</td>

@@ -30,4 +30,4 @@ export default async function LogPembayaranDetail({ params }: { params: Promise<
   );
 }
 
-const pre: CSSProperties = { whiteSpace: "pre-wrap", background: "#0f172a", color: "#e2e8f0", borderRadius: 12, padding: 16, overflow: "auto" };
+const pre: CSSProperties = { whiteSpace: "pre-wrap", overflowWrap: "anywhere", background: "#0f172a", color: "#e2e8f0", borderRadius: 12, padding: 16, overflow: "auto" };

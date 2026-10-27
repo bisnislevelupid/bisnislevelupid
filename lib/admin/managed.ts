@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { withPool } from "@/lib/db";
+import { NOTIFICATION_EVENTS } from "@/lib/admin/labels";
 import { getNotificationLogDetail } from "@/lib/db/notification-logs";
 import { getPaymentLogDetail } from "@/lib/db/payment-logs";
 
@@ -252,7 +253,7 @@ export async function getTemplate(id: string) {
   });
 }
 
-const TEMPLATE_EVENTS = new Set(["ORDER_CREATED", "ORDER_PAID", "TEST_RESULT"]);
+const TEMPLATE_EVENTS = new Set<string>(NOTIFICATION_EVENTS);
 
 export async function saveTemplate(input: TemplateInput, id?: string) {
   if (!TEMPLATE_EVENTS.has(input.eventTrigger.trim())) throw new Error("Event harus ORDER_CREATED, ORDER_PAID, atau TEST_RESULT");
@@ -282,8 +283,11 @@ export async function saveTemplate(input: TemplateInput, id?: string) {
 export async function listNotificationLogs() {
   return withPool(async (pool) => {
     const { rows } = await pool.query(
-      `SELECT id::text, recipient, channel, status, invoice_code, error_message, created_at
-       FROM notification_logs ORDER BY id DESC LIMIT 200`,
+      `SELECT l.id::text, l.recipient, l.channel, l.status, l.invoice_code, l.created_at,
+              t.event_trigger
+       FROM notification_logs l
+       LEFT JOIN notification_templates t ON t.id = l.template_id
+       ORDER BY l.id DESC LIMIT 200`,
     );
     return rows;
   });

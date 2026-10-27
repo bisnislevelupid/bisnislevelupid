@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { dashboardStats } from "@/lib/admin/crud";
 import { formatRupiah, statusColor, statusText } from "@/lib/admin/format";
+import { maskEmail } from "@/lib/admin/redact";
 
 export default async function PanelHome() {
   const stats = await dashboardStats();
@@ -48,7 +49,7 @@ export default async function PanelHome() {
                   <td data-label="Customer" style={{ padding: "12px 8px" }}>
                     <Link href={`/panel/orders/${row.id}`} style={{ color: "inherit", display: "block" }}>
                       <div>{row.customer_name}</div>
-                      <div style={{ color: "#94a3b8", fontSize: "0.75rem" }}>{row.customer_email}</div>
+                      <div style={{ color: "#94a3b8", fontSize: "0.75rem" }}>{row.customer_email ? maskEmail(row.customer_email) : ""}</div>
                     </Link>
                   </td>
                   <td data-label="Produk" style={{ padding: "12px 8px" }}><Link href={`/panel/orders/${row.id}`} style={{ color: "inherit" }}>{row.product_name}</Link></td>

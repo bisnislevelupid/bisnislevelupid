@@ -6,13 +6,27 @@ const URL_WITH_SECRET = /https?:\/\/[^\s"'<>]*(?:snap|midtrans|token)[^\s"'<>]*/
 export function maskEmail(value: string) {
   const [user, domain] = value.split("@");
   if (!domain) return "***";
-  return `${(user || "").slice(0, 1)}***@${domain}`;
+  const local = user || "";
+  const keep = local.slice(0, local.length >= 2 ? 2 : 1);
+  return `${keep}***@${domain}`;
 }
 
 export function maskPhone(value: string) {
   const digits = value.replace(/\D/g, "");
-  if (digits.length < 6) return "***";
-  return `${value.slice(0, 3)}***${value.slice(-3)}`;
+  if (digits.length < 8) {
+    if (digits.length < 6) return "***";
+    return `${digits.slice(0, 2)}***${digits.slice(-2)}`;
+  }
+  return `${digits.slice(0, 4)}****${digits.slice(-3)}`;
+}
+
+/** Email atau nomor pada daftar. Teks lain dibiarkan. */
+export function maskRecipient(value: string) {
+  const text = value.trim();
+  if (!text || text === "-") return text || "—";
+  if (text.includes("@")) return maskEmail(text);
+  if (text.replace(/\D/g, "").length >= 8) return maskPhone(text);
+  return text;
 }
 
 function maskLoose(value: string) {

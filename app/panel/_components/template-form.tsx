@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { codeChoices, NOTIFICATION_EVENTS } from "@/lib/admin/labels";
 import { wrapEmailHtml } from "@/lib/email/html";
 
 const PLACEHOLDERS = "{nama} {invoice} {produk} {nominal} {metode} {batas} {instruksi} {bayar_url} {dashboard_url} {audit_name} {skor} {status} {pdf_url}";
@@ -19,7 +20,7 @@ export function TemplateForm({
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [channel, setChannel] = useState(initial?.channel ?? "EMAIL");
-  const knownEvent = initial?.event_trigger === "ORDER_PAID" || initial?.event_trigger === "TEST_RESULT" || initial?.event_trigger === "ORDER_CREATED";
+  const knownEvent = NOTIFICATION_EVENTS.some((event) => event === initial?.event_trigger);
   const [eventTrigger, setEventTrigger] = useState(knownEvent ? initial?.event_trigger ?? "ORDER_CREATED" : "ORDER_CREATED");
   const [html, setHtml] = useState(initial?.message_content ?? "<p>Halo {nama},</p>");
   const [previewDoc, setPreviewDoc] = useState(() => wrapEmailHtml(initial?.message_content ?? "<p>Halo {nama},</p>"));
@@ -75,9 +76,9 @@ export function TemplateForm({
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
         <label>Event<span style={{ color: "#dc2626" }}> *</span>
           <select name="eventTrigger" required value={eventTrigger} onChange={(event) => setEventTrigger(event.target.value)} style={field}>
-            <option value="ORDER_CREATED">ORDER_CREATED — pesanan dibuat</option>
-            <option value="ORDER_PAID">ORDER_PAID — pesanan lunas</option>
-            <option value="TEST_RESULT">TEST_RESULT — hasil tes</option>
+            {codeChoices(NOTIFICATION_EVENTS).map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
           </select>
         </label>
         <label>Kanal

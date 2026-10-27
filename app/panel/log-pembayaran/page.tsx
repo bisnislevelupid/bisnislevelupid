@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { listPaymentLogs } from "@/lib/admin/managed";
-import { statusText } from "@/lib/admin/format";
+import { codeLabel } from "@/lib/admin/labels";
 import { formatWib } from "@/lib/portal/labels";
 
 export const dynamic = "force-dynamic";
@@ -12,22 +12,22 @@ export default async function LogPembayaranPage() {
     <div>
       <h1 style={{ fontSize: "1.5rem", fontWeight: 800 }}>Log pembayaran</h1>
       <p style={{ color: "#64748b", marginBottom: 16 }}>Catatan dari webhook dan aksi panel. Tidak bisa ditambah, diubah, atau dihapus.</p>
-      <div style={card}>
+      <div className="panel-as-cards" style={card}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr>{["Invoice", "Endpoint", "Tipe", "HTTP", "Waktu", ""].map((head) => <th key={head} style={th}>{head}</th>)}</tr>
+            <tr>{["Invoice", "Endpoint", "Tipe", "HTTP", "Waktu", ""].map((head) => <th key={head} style={th}>{head || "Aksi"}</th>)}</tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td style={td} colSpan={6}>Belum ada catatan pembayaran.</td></tr>
+              <tr><td data-label="" style={td} colSpan={6}>Belum ada catatan pembayaran.</td></tr>
             ) : rows.map((row) => (
               <tr key={String(row.id)}>
-                <td style={td}>{String(row.invoice_code ?? "—")}</td>
-                <td style={td}>{String(row.endpoint ?? "—")}</td>
-                <td style={td}>{statusText(String(row.type ?? ""))}</td>
-                <td style={td}>{String(row.http_status ?? "—")}</td>
-                <td style={td}>{formatWib(row.created_at as string | null) || "—"}</td>
-                <td style={td}>
+                <td data-label="Invoice" style={td}><span>{String(row.invoice_code ?? "—")}</span></td>
+                <td data-label="Endpoint" style={td}><span>{String(row.endpoint ?? "—")}</span></td>
+                <td data-label="Tipe" style={td}>{codeLabel(String(row.type ?? ""))}</td>
+                <td data-label="HTTP" style={td}>{String(row.http_status ?? "—")}</td>
+                <td data-label="Waktu" style={td}>{formatWib(row.created_at as string | null) || "—"}</td>
+                <td data-label="Aksi" style={td}>
                   <Link href={`/panel/log-pembayaran/${row.id}`} style={{ color: "#059669", fontWeight: 700 }}>Detail</Link>
                 </td>
               </tr>

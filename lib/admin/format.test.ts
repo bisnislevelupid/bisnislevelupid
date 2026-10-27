@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fixedColumns } from "@/lib/admin/catalog";
-import { maskEmail, maskPaymentPayload, maskPhone } from "@/lib/admin/redact";
+import { maskEmail, maskPaymentPayload, maskPhone, maskRecipient } from "@/lib/admin/redact";
 import { publicSiteUrl, siteUrl } from "@/lib/email/site-url";
 import { formatWib } from "@/lib/portal/labels";
 import { formatCell, formatRupiah, paymentTypeLabel, statusText, uniqueTransferLabel } from "./format";
-import { columnLabel, pickVisibleColumns, tableLabel } from "./labels";
+import { codeLabel, columnLabel, pickVisibleColumns, tableLabel } from "./labels";
 import { isReadonlyResource } from "./resources";
 import { describePanelStatus } from "./status";
 
@@ -41,6 +41,14 @@ test("label kolom panel berbahasa Indonesia", () => {
   assert.equal(formatCell({ name: "is_key", type: "boolean" }, true), "Ya ★");
   assert.equal(formatCell({ name: "price", type: "bigint" }, "597000"), "Rp 597.000");
   assert.equal(formatCell({ name: "email_verified_at", type: "timestamp with time zone" }, null), "Belum");
+  assert.equal(formatCell({ name: "type", type: "varchar" }, "SINGLE_AUDIT"), "Audit satu fase");
+  assert.equal(formatCell({ name: "type", type: "varchar" }, "BUNDLE_AUDIT"), "Audit lengkap");
+  assert.equal(formatCell({ name: "event_trigger", type: "varchar" }, "TEST_RESULT"), "Hasil tes");
+  assert.equal(codeLabel("PAYMENT_REQUEST"), "Permintaan bayar");
+  assert.equal(codeLabel("ORDER_PAID"), "Pesanan lunas");
+  assert.equal(codeLabel("ORDER_CREATED"), "Pesanan dibuat");
+  assert.equal(codeLabel("KODE_BARU"), "KODE_BARU");
+  assert.equal(statusText("PAYMENT_REQUEST"), "Permintaan bayar");
 });
 
 test("bank soal menampilkan audit dan seksi", () => {
@@ -121,8 +129,12 @@ test("tautan email tidak memakai localhost", () => {
 });
 
 test("payload pembayaran menyamarkan email, telepon, dan token", () => {
-  assert.equal(maskEmail("budi@example.com"), "b***@example.com");
-  assert.match(maskPhone("081234567890"), /081\*\*\*890/);
+  assert.equal(maskEmail("irvan@gmail.com"), "ir***@gmail.com");
+  assert.equal(maskEmail("budi@example.com"), "bu***@example.com");
+  assert.equal(maskPhone("08123456789"), "0812****789");
+  assert.equal(maskPhone("081234567890"), "0812****890");
+  assert.equal(maskRecipient("irvan@gmail.com"), "ir***@gmail.com");
+  assert.equal(maskRecipient("08123456789"), "0812****789");
   const masked = maskPaymentPayload(JSON.stringify({
     customer_email: "budi@example.com",
     customer_phone: "081234567890",
@@ -130,6 +142,8 @@ test("payload pembayaran menyamarkan email, telepon, dan token", () => {
     redirect_url: "https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-secret-token",
   }));
   assert.doesNotMatch(masked, /budi@example.com/);
+  assert.doesNotMatch(masked, /081234567890/);
   assert.doesNotMatch(masked, /snap-secret-token/);
-  assert.match(masked, /b\*\*\*@example.com/);
+  assert.match(masked, /bu\*\*\*@example.com/);
+  assert.match(masked, /0812\*\*\*\*890/);
 });

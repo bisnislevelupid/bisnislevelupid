@@ -21,9 +21,43 @@ export function rupiah(value: number | string) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value));
 }
 
+/** Absolute timestamp in Western Indonesia Time, with an explicit WIB label. */
+export function formatWib(value: string | Date | null | undefined) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const formatted = new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+  return `${formatted} WIB`;
+}
+
 export const AUDIT_BY_PHASE: Record<string, string> = {
   "1": "audit_1_2",
   "2": "audit_2_3",
   "3": "audit_3_4",
   "4": "audit_4_5",
 };
+
+const AUDIT_CODES = new Set(Object.values(AUDIT_BY_PHASE));
+
+/** Phase keys (`1`) and instrument codes (`audit_1_2`) both unlock the same audit. */
+export function codesFromUnlocked(raw: string | null | undefined) {
+  const codes: string[] = [];
+  const seen = new Set<string>();
+  for (const part of (raw ?? "").split(",")) {
+    const token = part.trim();
+    if (!token) continue;
+    const code = AUDIT_BY_PHASE[token] ?? (AUDIT_CODES.has(token) ? token : "");
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    codes.push(code);
+  }
+  return codes;
+}

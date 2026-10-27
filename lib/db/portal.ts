@@ -1,7 +1,8 @@
 import { cachedJson } from "@/lib/cache";
 import { withPool } from "@/lib/db";
 import { calculateResult, type AnswerCode, type AuditCode } from "@/lib/scoring";
-import { AUDIT_BY_PHASE } from "@/lib/portal/labels";
+import { AUDIT_BY_PHASE, codesFromUnlocked } from "@/lib/portal/labels";
+import { lookupAuditNames } from "@/lib/db/public";
 
 export type PortalCustomer = {
   id: string;
@@ -22,6 +23,7 @@ export type PortalOrder = {
   method_name: string | null;
   product_name: string;
   audits: string | null;
+  audit_label: string;
 };
 
 export type InstrumentSection = {
@@ -105,17 +107,34 @@ export async function listPortalOrders(customerId: string): Promise<PortalOrder[
        ORDER BY o.created_at DESC`,
       [customerId],
     );
-    return rows as PortalOrder[];
+    const orders = rows as Array<Omit<PortalOrder, "audit_label">>;
+    const codes = [...new Set(orders.flatMap((order) => codesFromUnlocked(order.audits)))];
+    const names = await lookupAuditNames(pool, codes);
+    const byCode = new Map(codes.map((code, index) => [code, names[index] ?? code]));
+    return orders.map((order) => ({
+      ...order,
+      audit_label: codesFromUnlocked(order.audits)
+        .map((code) => byCode.get(code) ?? code)
+        .join(", "),
+    }));
   });
 }
 
-function auditCodesFrom(raw: string | null) {
-  const codes = new Set<string>();
-  for (const part of (raw ?? "").split(",")) {
-    const code = AUDIT_BY_PHASE[part.trim()];
-    if (code) codes.add(code);
-  }
-  return [...codes];
+export async function participantCanAudit(customerId: string) {
+  if (!hasId(customerId)) return false;
+  return withPool(async (pool) => {
+    const { rows } = await pool.query(
+      `SELECT
+         EXISTS (SELECT 1 FROM orders WHERE customer_id = $1 AND status = 'PAID') AS paid,
+         EXISTS (
+           SELECT 1 FROM test_sessions
+           WHERE customer_id = $1 AND status IN ('NOT_STARTED', 'IN_PROGRESS')
+         ) AS active`,
+      [customerId],
+    );
+    const row = rows[0] as { paid: boolean; active: boolean } | undefined;
+    return Boolean(row?.paid || row?.active);
+  });
 }
 
 export async function listOwnedAudits(customerId: string): Promise<OwnedAudit[]> {
@@ -133,7 +152,7 @@ export async function listOwnedAudits(customerId: string): Promise<OwnedAudit[]>
     );
     const byCode = new Map<string, string>();
     for (const row of paid.rows as Array<{ order_id: string; audits: string | null }>) {
-      for (const code of auditCodesFrom(row.audits)) {
+      for (const code of codesFromUnlocked(row.audits)) {
         if (!byCode.has(code)) byCode.set(code, row.order_id);
       }
     }
@@ -320,12 +339,16 @@ export async function startSession(input: {
   if (!instrument) return { ok: false as const, error: "Instrumen tidak ditemukan" };
   return withPool(async (pool) => {
     await ensureColumns(pool);
+    const phaseKey = Object.entries(AUDIT_BY_PHASE).find(([, code]) => code === input.auditCode)?.[0] ?? "";
     const owned = await pool.query(
       `SELECT 1 FROM orders o
        JOIN order_items oi ON oi.order_id = o.id
        WHERE o.id = $1 AND o.customer_id = $2 AND o.status = 'PAID'
-         AND position(',' || $3 || ',' IN ',' || COALESCE(oi.audit_ids_unlocked, '') || ',') > 0`,
-      [input.orderId, input.customerId, Object.entries(AUDIT_BY_PHASE).find(([, code]) => code === input.auditCode)?.[0] ?? ""],
+         AND (
+           position(',' || $3 || ',' IN ',' || COALESCE(oi.audit_ids_unlocked, '') || ',') > 0
+           OR position(',' || $4 || ',' IN ',' || COALESCE(oi.audit_ids_unlocked, '') || ',') > 0
+         )`,
+      [input.orderId, input.customerId, phaseKey, input.auditCode],
     );
     if (!owned.rows[0]) return { ok: false as const, error: "Audit ini belum terbuka di akun Anda" };
     const existing = await pool.query(
@@ -335,7 +358,26 @@ export async function startSession(input: {
       [input.customerId, instrument.auditId],
     );
     const prior = existing.rows[0] as { id: string; status: string } | undefined;
-    if (prior && prior.status !== "COMPLETED") return { ok: true as const, sessionId: prior.id };
+    if (prior?.status === "IN_PROGRESS") return { ok: true as const, sessionId: prior.id };
+    if (prior?.status === "NOT_STARTED") {
+      await pool.query(
+        `UPDATE test_sessions
+         SET respondent_name = $2, company_name = $3, business_field = $4, business_start_year = $5,
+             external_auditor_name = $6, status = 'IN_PROGRESS', started_at = COALESCE(started_at, NOW()),
+             total_questions = $7, updated_at = NOW()
+         WHERE id = $1`,
+        [
+          prior.id,
+          input.respondentName,
+          input.companyName,
+          input.businessField,
+          input.businessStartYear,
+          input.externalAuditorName || null,
+          instrument.questions.length,
+        ],
+      );
+      return { ok: true as const, sessionId: prior.id };
+    }
     const created = await pool.query(
       `INSERT INTO test_sessions (
          customer_id, order_id, audit_transition_id, respondent_name, company_name, business_field,

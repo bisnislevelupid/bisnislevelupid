@@ -17,7 +17,7 @@ export const ORDER_CREATED_HTML = shell(
 <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155;">Pesanan <strong>{produk}</strong> sudah kami catat. Bayar sebelum batas waktu agar akses audit langsung terbuka.</p>
 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;margin:0 0 18px;">
 <div style="font-size:12px;color:#64748b;font-weight:700;letter-spacing:0.04em;">RINGKASAN</div>
-<div style="margin-top:10px;font-size:14px;line-height:1.7;">Invoice <strong>{invoice}</strong><br>Metode <strong>{metode}</strong><br>Batas bayar <strong>{batas}</strong></div>
+<div style="margin-top:10px;font-size:14px;line-height:1.7;">Invoice <strong>{invoice}</strong><br>Instrumen <strong>{instrumen}</strong><br>Metode <strong>{metode}</strong><br>Batas bayar <strong>{batas}</strong></div>
 <div style="margin-top:12px;font-size:22px;font-weight:700;color:#064e3b;">{nominal}</div>
 </div>
 <div style="margin:0 0 18px;font-size:14px;line-height:1.6;color:#334155;">{instruksi}</div>
@@ -31,7 +31,7 @@ export const ORDER_PAID_HTML = shell(
 <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155;">Pembayaran untuk <strong>{produk}</strong> sudah masuk. Anda bisa mulai checklist dari akun.</p>
 <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:14px;padding:16px 18px;margin:0 0 18px;">
 <div style="font-size:12px;color:#047857;font-weight:700;letter-spacing:0.04em;">LUNAS</div>
-<div style="margin-top:10px;font-size:14px;line-height:1.7;">Invoice <strong>{invoice}</strong><br>Metode <strong>{metode}</strong></div>
+<div style="margin-top:10px;font-size:14px;line-height:1.7;">Invoice <strong>{invoice}</strong><br>Instrumen <strong>{instrumen}</strong><br>Metode <strong>{metode}</strong></div>
 <div style="margin-top:12px;font-size:22px;font-weight:700;color:#064e3b;">{nominal}</div>
 </div>
 <a href="{dashboard_url}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:999px;">Masuk dan mulai audit</a>`,

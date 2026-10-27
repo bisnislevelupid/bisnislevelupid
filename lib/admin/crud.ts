@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { withPool } from "@/lib/db";
 import { isAdminTable } from "@/lib/admin/resources";
+import { provisionPaidSessions } from "@/lib/db/orders";
 import { notifyOrderPaid, siteOrigin } from "@/lib/email/notify";
 import { runLater } from "@/lib/notify/later";
 
@@ -122,6 +123,7 @@ export async function mutateResource(
 ) {
   if (!isAdminTable(table)) throw new Error("unknown table");
   let invoiceJustPaid: string | null = null;
+  let provisionInvoice: string | null = null;
   const saved = await withPool(async (pool) => {
     const cols = await pool.query(
       `SELECT column_name, data_type FROM information_schema.columns
@@ -162,7 +164,10 @@ export async function mutateResource(
     }
     if (table === "orders" && String(payload.status ?? "") === "PAID" && id) {
       const prev = await pool.query(`SELECT status, invoice_code FROM orders WHERE id::text = $1`, [id]);
-      if (prev.rows[0] && prev.rows[0].status !== "PAID") invoiceJustPaid = String(prev.rows[0].invoice_code);
+      if (prev.rows[0]) {
+        provisionInvoice = String(prev.rows[0].invoice_code);
+        if (prev.rows[0].status !== "PAID") invoiceJustPaid = provisionInvoice;
+      }
     }
     const sets = entries.map((n, i) => `${n}=$${i + 1}`).join(",");
     values.push(id);
@@ -176,6 +181,7 @@ export async function mutateResource(
         [invoiceJustPaid],
       );
     }
+    if (provisionInvoice) await provisionPaidSessions(pool, provisionInvoice);
     return hideSecrets(updated.rows[0] as Record<string, unknown>);
   });
   if (invoiceJustPaid) runLater(() => notifyOrderPaid(invoiceJustPaid as string, siteOrigin()));

@@ -1,16 +1,111 @@
 "use client";
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { 
   TrendingUp, 
   Menu, 
   X, 
-  ArrowRight,
-  User
+  ArrowRight
 } from 'lucide-react';
+import { Wordmark } from '@/components/shared/wordmark';
 
-export function Navbar() {
+export type PublicAccount = {
+  name: string;
+  email: string;
+  image: string | null;
+};
+
+function initials(name: string) {
+  const letters = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "");
+  return letters.join("") || "BL";
+}
+
+function avatarSrc(image: string | null) {
+  if (!image) return null;
+  if (image.startsWith("/")) return image;
+  try {
+    const host = new URL(image).hostname;
+    if (host === "lh3.googleusercontent.com") return image;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function AccountLink({ account, block = false }: { account: PublicAccount | null; block?: boolean }) {
+  if (!account) {
+    return (
+      <a
+        href="/masuk"
+        style={{
+          background: "transparent",
+          border: block ? "1px solid #e2e8f0" : "none",
+          color: "#475569",
+          padding: block ? "11px 14px" : "8px 14px",
+          fontSize: "0.92rem",
+          fontWeight: 600,
+          borderRadius: block ? 999 : undefined,
+          textAlign: "center",
+        }}
+      >
+        Masuk
+      </a>
+    );
+  }
+  const label = account.name.trim() || account.email;
+  const src = avatarSrc(account.image);
+  return (
+    <a
+      href="/akun"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: block ? "center" : "flex-start",
+        gap: 8,
+        color: "#0f172a",
+        fontWeight: 700,
+        fontSize: "0.92rem",
+        padding: "6px 10px 6px 6px",
+        borderRadius: 999,
+        border: "1px solid #e2e8f0",
+        background: "#f8fafc",
+        maxWidth: block ? "100%" : 220,
+      }}
+    >
+      {src ? (
+        <Image src={src} alt="" width={32} height={32} style={{ borderRadius: "50%", objectFit: "cover" }} />
+      ) : (
+        <span
+          aria-hidden="true"
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            background: "#059669",
+            color: "#fff",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "0.75rem",
+            fontWeight: 800,
+            flexShrink: 0,
+          }}
+        >
+          {initials(label)}
+        </span>
+      )}
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+    </a>
+  );
+}
+
+export function Navbar({ account = null }: { account?: PublicAccount | null }) {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const go = (path: string) => router.push(path);
@@ -56,7 +151,6 @@ export function Navbar() {
         justifyContent: 'space-between',
         height: '76px'
       }}>
-        {/* Brand Logo - ScaleUp Bisnis */}
         <div 
           onClick={() => { go('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
           style={{ 
@@ -80,18 +174,7 @@ export function Navbar() {
           }}>
             <TrendingUp size={22} strokeWidth={2.5} />
           </div>
-          <div style={{ 
-            fontFamily: 'var(--font-heading)',
-            fontSize: '1.4rem', 
-            fontWeight: 800,
-            color: '#0f172a',
-            letterSpacing: '-0.02em',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '2px'
-          }}>
-            Bisnis<span style={{ color: '#059669' }}>LevelUp</span>
-          </div>
+          <Wordmark />
         </div>
 
         {/* Clean Center Navigation Menu - EXACTLY like screenshot */}
@@ -125,41 +208,7 @@ export function Navbar() {
 
         {/* Right CTA Button - EXACTLY like screenshot */}
         <div style={{ display: 'none', alignItems: 'center', gap: '14px' }} className="desktop-actions">
-          {false ? (
-            <button
-              onClick={() => go('/masuk')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                color: '#334155',
-                padding: '8px 16px',
-                borderRadius: '999px',
-                fontSize: '0.88rem',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-            >
-              <User size={15} color="#059669" />
-              <span>Portal Member</span>
-            </button>
-          ) : (
-            <a
-              href="/masuk"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#475569',
-                padding: '8px 14px',
-                fontSize: '0.92rem',
-                fontWeight: 600,
-              }}
-            >
-              Masuk
-            </a>
-          )}
+          <AccountLink account={account} />
 
           <a
             href="/checkout?product=audit-lengkap"
@@ -228,13 +277,7 @@ export function Navbar() {
 
           <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0' }} />
 
-          <a
-            href="/masuk"
-            className="btn btn-outline"
-            style={{ width: '100%', borderRadius: '999px' }}
-          >
-            Masuk
-          </a>
+          <AccountLink account={account} block />
 
           <a
             href="/checkout?product=audit-lengkap"

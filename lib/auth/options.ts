@@ -120,6 +120,7 @@ export function buildAuthOptions(realm: AuthRealm): AuthOptions {
           token.sub = user.id;
           token.email = user.email;
           token.name = user.name;
+          if (user.image) token.picture = user.image;
           token.realm = realm;
           token.role = realm === "superadmin" ? "SUPERADMIN" : "PESERTA";
         }

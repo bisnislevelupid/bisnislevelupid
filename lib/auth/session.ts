@@ -8,6 +8,7 @@ export type RealmSession = {
   id: string;
   email: string;
   name: string;
+  image: string | null;
   realm: AuthRealm;
   role: string;
 };
@@ -30,6 +31,7 @@ function asSession(token: JWT | null, realm: AuthRealm): RealmSession | null {
     id: token.sub,
     email: token.email ?? "",
     name: token.name ?? "",
+    image: typeof token.picture === "string" ? token.picture : null,
     realm,
     role: token.role ?? "",
   };

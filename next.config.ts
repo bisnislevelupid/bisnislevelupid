@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [new URL("https://lh3.googleusercontent.com/**")],
+  },
   async headers() {
     const noStore = [{ key: "Cache-Control", value: "private, no-store" }];
     return [

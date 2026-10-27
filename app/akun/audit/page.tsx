@@ -12,11 +12,9 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   const customerId = session.id;
   const { sesi } = await searchParams;
   const [owned, customer] = await Promise.all([listOwnedAudits(customerId), getPortalCustomer(customerId)]);
-  const active = sesi
-    ? owned.find((item) => item.session?.id === sesi)
-    : owned.find((item) => item.session && item.session.status !== "COMPLETED") ?? owned.find((item) => !item.session);
+  const requested = sesi ? owned.find((item) => item.session?.id === sesi) : undefined;
 
-  if (sesi && active?.session?.status === "COMPLETED") {
+  if (requested?.session?.status === "COMPLETED") {
     return (
       <p>
         Sesi ini sudah dikirim. <Link href={`/akun/laporan?sesi=${sesi}`}>Lihat laporan</Link>
@@ -24,8 +22,11 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
     );
   }
 
-  const sessionId = sesi || (active?.session && active.session.status !== "COMPLETED" ? active.session.id : "");
-  if (!sessionId || !active) {
+  const running =
+    (requested?.session?.status === "IN_PROGRESS" ? requested : undefined) ??
+    (!sesi ? owned.find((item) => item.session?.status === "IN_PROGRESS") : undefined);
+  const sessionId = running?.session?.status === "IN_PROGRESS" ? running.session.id : "";
+  if (!sessionId || !running) {
     return (
       <section style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 24, padding: 20 }}>
         <h1 style={{ marginTop: 0 }}>{owned.length ? "Sebelum mulai" : "Audit belum terbuka"}</h1>
@@ -45,8 +46,8 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
             }}
           />
         ) : (
-          <Link href="/akun/invoice" style={{ fontWeight: 800, color: "#047857" }}>
-            Lihat status pembayaran
+          <Link href="/#pricing-section" style={{ fontWeight: 800, color: "#047857" }}>
+            Beli paket audit
           </Link>
         )}
       </section>

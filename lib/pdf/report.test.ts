@@ -133,6 +133,13 @@ test("PDF menyebut dasar skor, gerbang, area risiko, dan menyembunyikan panduan 
   assert.doesNotMatch(text, /Jawaban Ya 77/);
   assert.doesNotMatch(text, /Krisis fase ini/);
   assert.match(text, /Narasi seksi B/);
+  assert.match(text, /Laporan Audit Fase Bisnis/);
+  assert.match(text, /Riza Zacharias/);
+  assert.match(text, /Owner Syaamil Group/);
+  assert.match(text, /Hal \d+\/\d+/);
+  assert.match(text, /Harga SIMULASI/);
+  assert.match(pdf.toString("latin1"), /AlbertSans/);
+  assert.match(pdf.toString("latin1"), /Cabin/);
 });
 
 test("status selain siap naik menandai gerbang belum terlewati", async () => {
@@ -191,6 +198,8 @@ test("belum dapat dinilai menampilkan rekomendasi edukatif tanpa upsell berbayar
   const text = pdfText(pdf).replace(/\s+/g, " ");
   assert.match(text, /Tidak ada butir non-kunci yang dinilai · 9\/9 kunci terpenuhi/);
   assert.match(text, /The E-Myth Revisited/);
+  assert.match(text, /Riza Zacharias/);
   assert.doesNotMatch(text, /Coaching 1:1/);
   assert.doesNotMatch(text, /Langkah belajar berikutnya/);
+  assert.doesNotMatch(text, /SIMULASI/);
 });

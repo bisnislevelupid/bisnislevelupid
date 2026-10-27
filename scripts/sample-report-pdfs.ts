@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -223,11 +224,12 @@ async function main() {
     const report = await getReportDocument(customerId, sessionId, { origin: "https://bisnislevelup.id" });
     if (!report) throw new Error(`Laporan kosong untuk ${scenario.marker}`);
     if (report.status !== scenario.statusHint) throw new Error(`${scenario.marker} terbaca ${report.status}`);
-    const pdf = await buildReportPdf(report, { compress: false });
+    const pdf = await buildReportPdf(report);
     const file = path.join(outDir, `${scenario.statusHint}.pdf`);
     writeFileSync(file, pdf);
-    const pages = pdf.toString("latin1").match(/\/Type \/Page(?!s)/g)?.length ?? 0;
-    console.log(`${scenario.statusHint} pages=${pages} score=${report.score} file=${file}`);
+    const info = execFileSync("pdfinfo", [file], { encoding: "utf8" });
+    const pages = info.match(/Pages:\s+(\d+)/)?.[1] ?? "?";
+    console.log(`${scenario.statusHint} pages=${pages} bytes=${pdf.length} score=${report.score} file=${file}`);
   }
   const audience = await pool.query(`SELECT guidance_audience, count(*)::int AS rows FROM test_questions GROUP BY 1 ORDER BY 1`);
   console.table(audience.rows);

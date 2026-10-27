@@ -11,6 +11,7 @@
     "db:migrate:0002": "tsx scripts/db.ts drizzle/0002_test_questions_natural_key.sql",
     "db:seed": "tsx scripts/db.ts drizzle/seed.sql",
     "db:migrate:0004": "tsx scripts/db.ts drizzle/0004_report_narratives.sql",
+    "db:migrate:0005": "tsx scripts/db.ts drizzle/0005_pdf_spec.sql",
     "db:seed:questions": "tsx scripts/db.ts drizzle/seed_question_bank.sql",
     "db:seed:report": "tsx scripts/db.ts drizzle/seed_report_content.sql",
     "report:build-seed": "tsx scripts/build-report-seed.ts",

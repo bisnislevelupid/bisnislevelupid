@@ -90,14 +90,14 @@ export function MethodForm({ id, method, instructions }: { id?: string; method?:
   return (
     <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, maxWidth: 720 }}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <label>Kode<input name="code" required defaultValue={method?.code} style={field} /></label>
-        <label>Nama<input name="name" required defaultValue={method?.name} style={field} /></label>
-        <label>Tipe
+        <label>Kode<span style={req}> *</span><input name="code" required defaultValue={method?.code} style={field} /></label>
+        <label>Nama<span style={req}> *</span><input name="name" required defaultValue={method?.name} style={field} /></label>
+        <label>Tipe<span style={req}> *</span>
           <select name="type" required defaultValue={knownOr(TYPES, method?.type, "bank_transfer")} style={field}>
             {options(TYPES, method?.type).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
         </label>
-        <label>Provider
+        <label>Provider<span style={req}> *</span>
           <select name="provider" required defaultValue={knownOr(PROVIDERS, method?.provider, "Manual")} style={field}>
             {options(PROVIDERS, method?.provider).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
@@ -184,19 +184,23 @@ function InstructionStep({
       <button type="button" aria-label="Geser langkah" {...attributes} {...listeners} style={{ justifySelf: "start", border: "none", background: "transparent", cursor: "grab", color: "#64748b" }}>
         <GripVertical size={16} />
       </button>
-      <input value={step.title} placeholder="Judul langkah" onChange={(event) => onChange({ title: event.target.value })} style={field} />
-      <InstructionEditor value={step.content} onChange={(content) => onChange({ content })} />
+      <label>Judul langkah<span style={req}> *</span>
+        <input value={step.title} required placeholder="Judul langkah" onChange={(event) => onChange({ title: event.target.value })} style={field} />
+      </label>
+      <label>Isi langkah<span style={req}> *</span>
+        <InstructionEditor value={step.content} onChange={(content) => onChange({ content })} />
+      </label>
       <button type="button" onClick={onRemove} style={ghost}>Hapus langkah</button>
     </div>
   );
 }
 
 const TYPES = [
-  { value: "bank_transfer", label: "Transfer bank" },
-  { value: "va", label: "Virtual account" },
-  { value: "qr_code", label: "Kode QR" },
-  { value: "E-Wallet", label: "E-wallet" },
-  { value: "retail_outlet", label: "Gerai ritel" },
+  { value: "bank_transfer", label: "Transfer Bank" },
+  { value: "va", label: "Virtual Account" },
+  { value: "qr_code", label: "QRIS" },
+  { value: "E-Wallet", label: "E-Wallet" },
+  { value: "retail_outlet", label: "Gerai Ritel" },
 ];
 
 const PROVIDERS = [
@@ -215,6 +219,7 @@ function knownOr(list: { value: string }[], current: string | undefined, fallbac
   return fallback;
 }
 
+const req: CSSProperties = { color: "#dc2626" };
 const field: CSSProperties = { display: "block", width: "100%", marginTop: 6, border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 12px", background: "#fff" };
 const button: CSSProperties = { height: 42, border: "none", borderRadius: 999, background: "#059669", color: "#fff", fontWeight: 700, cursor: "pointer" };
 const ghost: CSSProperties = { justifySelf: "start", border: "1px solid #e2e8f0", background: "#fff", borderRadius: 999, padding: "6px 12px", cursor: "pointer" };

@@ -1,5 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { withPool } from "@/lib/db";
+import { getNotificationLogDetail } from "@/lib/db/notification-logs";
+import { getPaymentLogDetail } from "@/lib/db/payment-logs";
 
 const ROLES = new Set(["SUPERADMIN", "ADMIN", "FINANCE", "CONTENT", "SUPPORT"]);
 const STATUSES = new Set(["ACTIVE", "INACTIVE"]);
@@ -226,14 +228,7 @@ export async function listPaymentLogs() {
 }
 
 export async function getPaymentLog(id: string) {
-  return withPool(async (pool) => {
-    const { rows } = await pool.query(
-      `SELECT id::text, invoice_code, order_id::text, endpoint, type, request_payload, response_payload, http_status, created_at
-       FROM payment_logs WHERE id::text = $1`,
-      [id],
-    );
-    return rows[0] ?? null;
-  });
+  return getPaymentLogDetail(id);
 }
 
 export async function listTemplates() {
@@ -257,9 +252,12 @@ export async function getTemplate(id: string) {
   });
 }
 
+const TEMPLATE_EVENTS = new Set(["ORDER_CREATED", "ORDER_PAID", "TEST_RESULT"]);
+
 export async function saveTemplate(input: TemplateInput, id?: string) {
-  if (!input.eventTrigger.trim() || !input.channel.trim() || !input.messageContent.trim()) {
-    throw new Error("Event, kanal, dan isi pesan wajib diisi");
+  if (!TEMPLATE_EVENTS.has(input.eventTrigger.trim())) throw new Error("Event harus ORDER_CREATED, ORDER_PAID, atau TEST_RESULT");
+  if (!input.channel.trim() || !input.messageContent.trim()) {
+    throw new Error("Kanal dan isi pesan wajib diisi");
   }
   return withPool(async (pool) => {
     if (!id) {
@@ -292,13 +290,5 @@ export async function listNotificationLogs() {
 }
 
 export async function getNotificationLog(id: string) {
-  return withPool(async (pool) => {
-    const { rows } = await pool.query(
-      `SELECT id::text, template_id::text, invoice_code, order_id::text, session_id::text,
-              recipient, channel, status, error_message, request_payload, response_payload, sent_at, created_at
-       FROM notification_logs WHERE id::text = $1`,
-      [id],
-    );
-    return rows[0] ?? null;
-  });
+  return getNotificationLogDetail(id);
 }

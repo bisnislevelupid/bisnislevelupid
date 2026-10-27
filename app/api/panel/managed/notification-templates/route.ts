@@ -4,7 +4,7 @@ import { saveTemplate } from "@/lib/admin/managed";
 import { superadminFromRequest } from "@/lib/auth/session";
 
 const schema = z.object({
-  eventTrigger: z.string().min(1),
+  eventTrigger: z.enum(["ORDER_CREATED", "ORDER_PAID", "TEST_RESULT"]),
   channel: z.string().min(1),
   subject: z.string().default(""),
   messageContent: z.string().min(1),

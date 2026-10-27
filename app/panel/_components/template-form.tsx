@@ -19,6 +19,8 @@ export function TemplateForm({
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [channel, setChannel] = useState(initial?.channel ?? "EMAIL");
+  const knownEvent = initial?.event_trigger === "ORDER_PAID" || initial?.event_trigger === "TEST_RESULT" || initial?.event_trigger === "ORDER_CREATED";
+  const [eventTrigger, setEventTrigger] = useState(knownEvent ? initial?.event_trigger ?? "ORDER_CREATED" : "ORDER_CREATED");
   const [html, setHtml] = useState(initial?.message_content ?? "<p>Halo {nama},</p>");
   const [previewDoc, setPreviewDoc] = useState(() => wrapEmailHtml(initial?.message_content ?? "<p>Halo {nama},</p>"));
   const whatsapp = channel === "WA" || channel === "WHATSAPP";
@@ -71,7 +73,13 @@ export function TemplateForm({
   return (
     <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-        <label>Event<input name="eventTrigger" required defaultValue={initial?.event_trigger} style={field} /></label>
+        <label>Event<span style={{ color: "#dc2626" }}> *</span>
+          <select name="eventTrigger" required value={eventTrigger} onChange={(event) => setEventTrigger(event.target.value)} style={field}>
+            <option value="ORDER_CREATED">ORDER_CREATED — pesanan dibuat</option>
+            <option value="ORDER_PAID">ORDER_PAID — pesanan lunas</option>
+            <option value="TEST_RESULT">TEST_RESULT — hasil tes</option>
+          </select>
+        </label>
         <label>Kanal
           <select value={channel} onChange={(event) => setChannel(event.target.value)} style={field}>
             <option value="EMAIL">EMAIL</option>

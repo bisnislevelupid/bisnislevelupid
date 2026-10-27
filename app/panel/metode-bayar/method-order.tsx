@@ -7,6 +7,7 @@ import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type D
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
+import { paymentTypeLabel } from "@/lib/admin/format";
 import { DeleteButton } from "../_components/delete-button";
 
 type Row = {
@@ -77,7 +78,7 @@ function SortableMethod({ row }: { row: Row }) {
       </button>
       <span>{row.name}</span>
       <span>{row.code}</span>
-      <span>{row.type}</span>
+      <span>{paymentTypeLabel(row.type)}</span>
       <span>{row.instruction_count} langkah</span>
       <span>{row.is_active ? "Aktif" : "Nonaktif"}</span>
       <span>

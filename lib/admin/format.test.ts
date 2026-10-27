@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { fixedColumns } from "@/lib/admin/catalog";
+import { maskEmail, maskPaymentPayload, maskPhone } from "@/lib/admin/redact";
+import { publicSiteUrl } from "@/lib/email/site-url";
 import { formatWib } from "@/lib/portal/labels";
-import { formatCell, formatRupiah, statusText } from "./format";
+import { formatCell, formatRupiah, paymentTypeLabel, statusText } from "./format";
 import { columnLabel, pickVisibleColumns, tableLabel } from "./labels";
 import { isReadonlyResource } from "./resources";
 import { describePanelStatus } from "./status";
@@ -77,4 +80,47 @@ test("status header tidak mengaku Xendit tersambung bila kunci kosong", () => {
   });
   assert.match(live.short, /Transfer bank manual nonaktif/);
   assert.match(live.short, /Midtrans sandbox/);
+});
+
+test("produk, fase, dan kupon punya kolom bernama", () => {
+  assert.equal(tableLabel("products"), "Produk");
+  assert.equal(tableLabel("phases"), "Fase");
+  assert.equal(tableLabel("coupon_codes"), "Kode kupon");
+  assert.ok(fixedColumns("products")?.some((column) => column.name === "name"));
+  assert.ok(fixedColumns("phases")?.some((column) => column.name === "name_label"));
+  assert.ok(fixedColumns("coupon_codes")?.some((column) => column.name === "code"));
+  assert.equal(paymentTypeLabel("va"), "Virtual Account");
+  assert.equal(paymentTypeLabel("qr_code"), "QRIS");
+  assert.equal(paymentTypeLabel("bank_transfer"), "Transfer Bank");
+  assert.equal(paymentTypeLabel("E-Wallet"), "E-Wallet");
+});
+
+test("tautan email tidak memakai localhost", () => {
+  const site = process.env.NEXT_PUBLIC_SITE_URL;
+  const app = process.env.NEXT_PUBLIC_APP_URL;
+  delete process.env.NEXT_PUBLIC_SITE_URL;
+  delete process.env.NEXT_PUBLIC_APP_URL;
+  assert.equal(publicSiteUrl(), "https://www.bisnislevelup.id");
+  process.env.NEXT_PUBLIC_SITE_URL = "http://localhost:3000";
+  assert.equal(publicSiteUrl(), "https://www.bisnislevelup.id");
+  process.env.NEXT_PUBLIC_SITE_URL = "https://www.bisnislevelup.id/panel";
+  assert.equal(publicSiteUrl(), "https://www.bisnislevelup.id");
+  if (site === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+  else process.env.NEXT_PUBLIC_SITE_URL = site;
+  if (app === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+  else process.env.NEXT_PUBLIC_APP_URL = app;
+});
+
+test("payload pembayaran menyamarkan email, telepon, dan token", () => {
+  assert.equal(maskEmail("budi@example.com"), "b***@example.com");
+  assert.match(maskPhone("081234567890"), /081\*\*\*890/);
+  const masked = maskPaymentPayload(JSON.stringify({
+    customer_email: "budi@example.com",
+    customer_phone: "081234567890",
+    token: "snap-secret-token",
+    redirect_url: "https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-secret-token",
+  }));
+  assert.doesNotMatch(masked, /budi@example.com/);
+  assert.doesNotMatch(masked, /snap-secret-token/);
+  assert.match(masked, /b\*\*\*@example.com/);
 });

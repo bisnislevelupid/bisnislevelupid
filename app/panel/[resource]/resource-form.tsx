@@ -8,16 +8,44 @@ import { columnLabel, fieldOptions, tableLabel } from "@/lib/admin/labels";
 import { relationByColumn } from "@/lib/admin/relations";
 import type { PanelColumn, RelationOption } from "@/lib/admin/panel-types";
 
-export function ResourceForm({ resource, id, readOnly = false }: { resource: string; id?: string; readOnly?: boolean }) {
+function seedValues(columns: PanelColumn[], row: Record<string, unknown> | null | undefined, id?: string) {
+  const createDefaults: Record<string, string> = { weight: "1", sort_order: "0", passing_score: "80", priority: "5", quantity: "1" };
+  const initial: Record<string, string> = {};
+  for (const column of columns) {
+    const raw = id ? row?.[column.name] : undefined;
+    if (column.type === "boolean") {
+      if (raw == null) initial[column.name] = !id && column.name === "is_active" ? "true" : "false";
+      else initial[column.name] = raw === true || raw === "true" ? "true" : "false";
+    } else if (!id && raw == null && createDefaults[column.name]) {
+      initial[column.name] = createDefaults[column.name];
+    } else {
+      initial[column.name] = raw == null ? "" : String(raw);
+    }
+  }
+  return initial;
+}
+
+export function ResourceForm({
+  resource,
+  id,
+  readOnly = false,
+  initial,
+}: {
+  resource: string;
+  id?: string;
+  readOnly?: boolean;
+  initial?: { columns: PanelColumn[]; relations: Record<string, RelationOption[]>; row?: Record<string, unknown> | null };
+}) {
   const router = useRouter();
-  const [columns, setColumns] = useState<PanelColumn[]>([]);
-  const [relations, setRelations] = useState<Record<string, RelationOption[]>>({});
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [columns, setColumns] = useState<PanelColumn[]>(initial?.columns ?? []);
+  const [relations, setRelations] = useState<Record<string, RelationOption[]>>(initial?.relations ?? {});
+  const [values, setValues] = useState<Record<string, string>>(() => seedValues(initial?.columns ?? [], initial?.row, id));
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initial);
 
   useEffect(() => {
+    if (initial) return;
     const url = id
       ? `/api/panel/${resource}/${encodeURIComponent(id)}`
       : `/api/panel/${resource}?page=1&limit=1&options=1`;
@@ -32,20 +60,7 @@ export function ResourceForm({ resource, id, readOnly = false }: { resource: str
         const nextColumns = (json.columns ?? []) as PanelColumn[];
         setColumns(nextColumns);
         setRelations(json.relations ?? {});
-        const createDefaults: Record<string, string> = { weight: "1", sort_order: "0", passing_score: "80", priority: "5", quantity: "1" };
-        const initial: Record<string, string> = {};
-        for (const column of nextColumns) {
-          const raw = id ? json.row?.[column.name] : undefined;
-          if (column.type === "boolean") {
-            if (raw == null) initial[column.name] = !id && column.name === "is_active" ? "true" : "false";
-            else initial[column.name] = raw === true || raw === "true" ? "true" : "false";
-          } else if (!id && raw == null && createDefaults[column.name]) {
-            initial[column.name] = createDefaults[column.name];
-          } else {
-            initial[column.name] = raw == null ? "" : String(raw);
-          }
-        }
-        setValues(initial);
+        setValues(seedValues(nextColumns, json.row, id));
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -55,7 +70,7 @@ export function ResourceForm({ resource, id, readOnly = false }: { resource: str
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [resource, id]);
+  }, [resource, id, initial]);
 
   function setField(name: string, value: string) {
     setValues((prev) => {

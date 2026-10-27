@@ -52,6 +52,20 @@ export function formatRupiah(value: number | string | null | undefined) {
   return `${sign}Rp ${grouped}`;
 }
 
+const PAYMENT_TYPE_LABEL: Record<string, string> = {
+  va: "Virtual Account",
+  qr_code: "QRIS",
+  qris: "QRIS",
+  bank_transfer: "Transfer Bank",
+  "E-Wallet": "E-Wallet",
+  ewallet: "E-Wallet",
+  retail_outlet: "Gerai Ritel",
+};
+
+export function paymentTypeLabel(type: string) {
+  return PAYMENT_TYPE_LABEL[type] ?? type;
+}
+
 export function statusText(value: string) {
   if (!value) return "—";
   return STATUS_TEXT[value] ?? value;

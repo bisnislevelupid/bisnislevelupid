@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { Pool } from "@neondatabase/serverless";
 import { withPool } from "@/lib/db";
+import { getFixedResource, isFixedResource, listFixedResource, mutateFixedResource } from "@/lib/admin/entities";
 import { isAdminTable, isReadonlyResource } from "@/lib/admin/resources";
 import { relationsFor, sqlIdent, type RelationDef } from "@/lib/admin/relations";
 import type { PanelColumn, PanelList, PanelRecord, RelationOption } from "@/lib/admin/panel-types";
@@ -113,6 +114,7 @@ async function assertBelongs(
 
 export async function listResource(table: string, query: ListQuery): Promise<PanelList> {
   if (!isAdminTable(table)) throw new Error("unknown table");
+  if (isFixedResource(table)) return listFixedResource(table, query);
   assertDigits(query.audit, "Audit");
   assertDigits(query.section, "Seksi");
   const page = Math.max(1, query.page || 1);
@@ -189,6 +191,7 @@ export async function listResource(table: string, query: ListQuery): Promise<Pan
 
 export async function getResource(table: string, id: string): Promise<PanelRecord> {
   if (!isAdminTable(table)) throw new Error("unknown table");
+  if (isFixedResource(table)) return getFixedResource(table, id);
   return withPool(async (pool) => {
     const loaded = await loadColumns(pool, table);
     const rels = relationsFor(loaded.names);
@@ -265,6 +268,7 @@ export async function mutateResource(
 ) {
   if (!isAdminTable(table)) throw new Error("unknown table");
   if (isReadonlyResource(table)) throw new Error("Tabel ini hanya bisa dibaca");
+  if (isFixedResource(table)) return mutateFixedResource(table, action, body, id);
   let invoiceJustPaid: string | null = null;
   let provisionInvoice: string | null = null;
   const saved = await withPool(async (pool) => {

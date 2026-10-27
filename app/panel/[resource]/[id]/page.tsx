@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { getResource, listResource } from "@/lib/admin/crud";
 import { isAdminTable, isReadonlyResource } from "@/lib/admin/resources";
 import { tableLabel } from "@/lib/admin/labels";
 import { ResourceForm } from "../resource-form";
@@ -25,6 +26,10 @@ export default async function ResourceEditPage({
   if (!isAdminTable(resource)) notFound();
   const creating = id === "baru";
   const readOnly = isReadonlyResource(resource);
+  const loaded = creating
+    ? await listResource(resource, { page: 1, limit: 1, includeOptions: true })
+    : await getResource(resource, decodeURIComponent(id));
+  if (!creating && !("row" in loaded && loaded.row)) notFound();
   return (
     <div>
       <Link href={`/panel/${resource}`} className="text-sm font-medium text-primary">← Kembali ke daftar</Link>
@@ -36,7 +41,17 @@ export default async function ResourceEditPage({
           Tabel ini hanya bisa dibaca. Baris baru tidak bisa dibuat dari panel.
         </p>
       ) : (
-        <ResourceForm key={`${resource}:${creating ? "baru" : id}`} resource={resource} id={creating ? undefined : decodeURIComponent(id)} readOnly={readOnly} />
+        <ResourceForm
+          key={`${resource}:${creating ? "baru" : id}`}
+          resource={resource}
+          id={creating ? undefined : decodeURIComponent(id)}
+          readOnly={readOnly}
+          initial={{
+            columns: loaded.columns,
+            relations: loaded.relations ?? {},
+            row: "row" in loaded ? loaded.row : null,
+          }}
+        />
       )}
     </div>
   );

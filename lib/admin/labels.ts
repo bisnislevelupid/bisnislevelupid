@@ -216,14 +216,14 @@ export const TABLE_LABELS: Record<string, string> = {
   admins: "Pengguna panel",
   customers: "Data customer",
   customer_sessions: "Sesi peserta",
-  phases: "Fase bisnis",
+  phases: "Fase",
   audit_transitions: "Transisi audit",
   test_sections: "Seksi soal",
   test_questions: "Bank soal",
   recommendation_library: "Library rekomendasi",
   recommendation_triggers: "Pemicu rekomendasi",
   product_categories: "Kategori produk",
-  products: "Katalog produk",
+  products: "Produk",
   upsell_items: "Upsell",
   payment_methods: "Metode bayar",
   payment_instructions: "Instruksi bayar",
@@ -346,6 +346,13 @@ export function pickVisibleColumns(table: string, available: string[], pk: strin
 export function fieldOptions(table: string, column: string) {
   if (column === "status" && (table === "customers" || table === "affiliates" || table === "testimonials")) {
     return ACTIVE_STATUS;
+  }
+  if (column === "type" && (table === "products" || table === "upsell_items")) {
+    return [
+      { value: "SINGLE_AUDIT", label: "Audit satu fase" },
+      { value: "BUNDLE_AUDIT", label: "Audit lengkap" },
+      { value: "COACHING", label: "Coaching" },
+    ];
   }
   return FIELD_OPTIONS[column] ?? null;
 }

@@ -6,6 +6,7 @@ import { fillPlaceholders, rupiah } from "@/lib/email/html";
 import { getReport, rememberPdf } from "@/lib/db/portal";
 import { buildReportPdf } from "@/lib/pdf/report";
 import { lookupAuditNames } from "@/lib/db/public";
+import { publicSiteUrl } from "@/lib/email/site-url";
 import { codesFromUnlocked, formatWib, statusLabel } from "@/lib/portal/labels";
 
 const CHECKOUT_TYPES = new Set(["bank_transfer", "va", "retail_outlet"]);
@@ -86,7 +87,8 @@ function productLine(name: string | null, audit: string | undefined) {
   return name || audit || "";
 }
 
-export async function notifyOrderCreated(invoice: string, origin: string) {
+export async function notifyOrderCreated(invoice: string, _origin?: string) {
+  const origin = publicSiteUrl();
   const order = await loadOrder(invoice);
   if (!order || !CHECKOUT_TYPES.has(order.method_type ?? "")) return;
   const instruksi = await instructionHtml(order);
@@ -111,7 +113,8 @@ export async function notifyOrderCreated(invoice: string, origin: string) {
   });
 }
 
-export async function notifyOrderPaid(invoice: string, origin: string) {
+export async function notifyOrderPaid(invoice: string, _origin?: string) {
+  const origin = publicSiteUrl();
   await provisionPaidSessionsByInvoice(invoice);
   const order = await loadOrder(invoice);
   if (!order) return;
@@ -133,7 +136,8 @@ export async function notifyOrderPaid(invoice: string, origin: string) {
   });
 }
 
-export async function notifyTestResult(customerId: string, sessionId: string, origin: string) {
+export async function notifyTestResult(customerId: string, sessionId: string, _origin?: string) {
+  const origin = publicSiteUrl();
   const report = await getReport(customerId, sessionId);
   if (!report) return;
   const contact = await withPool(async (pool) => {
@@ -178,8 +182,6 @@ export async function notifyTestResult(customerId: string, sessionId: string, or
   });
 }
 
-export function siteOrigin(fallback?: string | null) {
-  if (fallback) return fallback.replace(/\/$/, "");
-  const domain = process.env.RESEND_EMAIL_DOMAIN || "bisnislevelup.id";
-  return `https://${domain}`;
+export function siteOrigin(_fallback?: string | null) {
+  return publicSiteUrl();
 }

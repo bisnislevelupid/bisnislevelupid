@@ -269,6 +269,35 @@ export function PanelShell({
         }
         .admin-root { font-size: 13px; }
         .admin-main table thead th { background: #059669; color: #fff !important; }
+        @media (max-width: 400px) {
+          .panel-as-cards table thead { display: none; }
+          .panel-as-cards table,
+          .panel-as-cards tbody,
+          .panel-as-cards tr,
+          .panel-as-cards td { display: block; width: 100%; }
+          .panel-as-cards tr {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin: 0 0 12px;
+            padding: 8px 12px;
+            background: #fff;
+          }
+          .panel-as-cards td {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+          }
+          .panel-as-cards td:last-child { border-bottom: none; }
+          .panel-as-cards td::before {
+            content: attr(data-label);
+            color: #64748b;
+            font-weight: 700;
+            flex: 0 0 38%;
+          }
+          .panel-as-cards td[data-label=""]::before { content: none; }
+        }
         .admin-main .status-pill { color: #fff; }
         @media (max-width: 900px) {
           .admin-sidebar { transform: translateX(-100%); }

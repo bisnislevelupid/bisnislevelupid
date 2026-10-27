@@ -358,79 +358,146 @@ export async function startSession(input: {
   });
 }
 
-function firstOpenIndex(questions: InstrumentQuestion[], answers: Map<string, AnswerCode>) {
-  const index = questions.findIndex((question) => !answers.has(question.id));
-  return index === -1 ? questions.length - 1 : index;
-}
-
 export async function saveAnswer(input: {
   customerId: string;
   sessionId: string;
   questionId: string;
   answer: AnswerCode;
   note: string;
+  clientSeq: number;
 }) {
-  const bundle = await getSessionBundle(input.customerId, input.sessionId);
-  if (!bundle) return { ok: false as const, error: "Sesi tidak ditemukan" };
-  if (bundle.session.status !== "IN_PROGRESS") return { ok: false as const, error: "Sesi sudah dikunci" };
-  const instrument = await getInstrument(bundle.session.audit_code);
-  if (!instrument) return { ok: false as const, error: "Instrumen tidak ditemukan" };
-  const question = instrument.questions.find((item) => item.id === input.questionId);
-  if (!question) return { ok: false as const, error: "Butir tidak termasuk instrumen ini" };
-  if (bundle.session.locked.includes(question.sectionId)) {
-    return { ok: false as const, error: "Seksi ini sudah selesai dan tidak bisa diubah" };
+  if (!hasId(input.customerId) || !hasId(input.sessionId) || !hasId(input.questionId)) {
+    return { ok: false as const, error: "Jawaban tidak valid", permanent: true };
   }
-  if (input.answer === "TIDAK_BERLAKU" && !question.allowNa) {
-    return { ok: false as const, error: "Butir ini tidak memiliki pilihan Tidak Berlaku" };
+  if (!Number.isInteger(input.clientSeq) || input.clientSeq <= 0) {
+    return { ok: false as const, error: "Jawaban tidak valid", permanent: true };
   }
-  const inSection = instrument.questions.filter((item) => item.sectionId === question.sectionId);
-  const known = new Map(bundle.answers.map((item) => [item.questionId, item.answer]));
-  const openAt = firstOpenIndex(inSection, known);
-  const targetAt = inSection.findIndex((item) => item.id === question.id);
-  if (targetAt > openAt) return { ok: false as const, error: "Jawab butir sebelumnya terlebih dahulu" };
-
   return withPool(async (pool) => {
-    await pool.query(
-      `INSERT INTO test_answers (session_id, question_id, answer, note)
-       VALUES ($1,$2,$3,$4)
-       ON CONFLICT (session_id, question_id)
-       DO UPDATE SET answer = EXCLUDED.answer, note = EXCLUDED.note, updated_at = NOW()`,
-      [input.sessionId, input.questionId, input.answer, input.note || null],
-    );
-    await pool.query(
-      `UPDATE test_sessions
-       SET answered_count = (SELECT COUNT(*) FROM test_answers WHERE session_id = $1),
-           status = 'IN_PROGRESS', updated_at = NOW()
-       WHERE id = $1`,
-      [input.sessionId],
-    );
-    return { ok: true as const };
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const found = await client.query(
+        `SELECT s.status, s.locked_section_ids,
+                tq.id::text AS question_id, tq.section_id::text AS section_id, tq.has_not_applicable
+         FROM test_sessions s
+         LEFT JOIN test_questions tq
+           ON tq.id = $3 AND tq.audit_transition_id = s.audit_transition_id AND tq.is_active = true
+         WHERE s.id = $1 AND s.customer_id = $2
+         FOR UPDATE OF s`,
+        [input.sessionId, input.customerId, input.questionId],
+      );
+      const row = found.rows[0] as
+        | {
+            status: string;
+            locked_section_ids: string | null;
+            question_id: string | null;
+            section_id: string | null;
+            has_not_applicable: boolean | null;
+          }
+        | undefined;
+      if (!row) {
+        await client.query("ROLLBACK");
+        return { ok: false as const, error: "Sesi tidak ditemukan", permanent: true };
+      }
+      if (row.status !== "IN_PROGRESS") {
+        await client.query("ROLLBACK");
+        return { ok: false as const, error: "Sesi sudah dikunci", permanent: true };
+      }
+      if (!row.question_id || !row.section_id) {
+        await client.query("ROLLBACK");
+        return { ok: false as const, error: "Butir tidak termasuk instrumen ini", permanent: true };
+      }
+      const locked = (row.locked_section_ids ?? "").split(",").filter(Boolean);
+      if (locked.includes(row.section_id)) {
+        await client.query("ROLLBACK");
+        return { ok: false as const, error: "Seksi ini sudah selesai dan tidak bisa diubah", permanent: true };
+      }
+      if (input.answer === "TIDAK_BERLAKU" && !row.has_not_applicable) {
+        await client.query("ROLLBACK");
+        return { ok: false as const, error: "Butir ini tidak memiliki pilihan Tidak Berlaku", permanent: true };
+      }
+      const saved = await client.query(
+        `INSERT INTO test_answers (session_id, question_id, answer, note, client_seq)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (session_id, question_id) DO UPDATE
+         SET answer = EXCLUDED.answer,
+             note = EXCLUDED.note,
+             client_seq = EXCLUDED.client_seq,
+             updated_at = NOW()
+         WHERE test_answers.client_seq < EXCLUDED.client_seq
+         RETURNING id`,
+        [input.sessionId, input.questionId, input.answer, input.note || null, input.clientSeq],
+      );
+      const applied = (saved.rowCount ?? 0) > 0;
+      if (applied) {
+        await client.query(
+          `UPDATE test_sessions
+           SET answered_count = (SELECT COUNT(*)::int FROM test_answers WHERE session_id = $1),
+               updated_at = NOW()
+           WHERE id = $1 AND status = 'IN_PROGRESS'`,
+          [input.sessionId],
+        );
+      }
+      await client.query("COMMIT");
+      return { ok: true as const, applied };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   });
 }
 
 export async function lockSection(customerId: string, sessionId: string, sectionId: string) {
-  const bundle = await getSessionBundle(customerId, sessionId);
-  if (!bundle || bundle.session.status !== "IN_PROGRESS") return { ok: false as const, error: "Sesi tidak bisa dikunci" };
-  const instrument = await getInstrument(bundle.session.audit_code);
+  if (!hasId(customerId) || !hasId(sessionId) || !hasId(sectionId)) {
+    return { ok: false as const, error: "Sesi tidak bisa dikunci" };
+  }
+  const session = await withPool(async (pool) => {
+    const { rows } = await pool.query(
+      `SELECT s.status, s.locked_section_ids, a.code AS audit_code
+       FROM test_sessions s
+       JOIN audit_transitions a ON a.id = s.audit_transition_id
+       WHERE s.id = $1 AND s.customer_id = $2`,
+      [sessionId, customerId],
+    );
+    return (
+      (rows[0] as { status: string; locked_section_ids: string | null; audit_code: string } | undefined) ?? null
+    );
+  });
+  if (!session || session.status !== "IN_PROGRESS") return { ok: false as const, error: "Sesi tidak bisa dikunci" };
+  const instrument = await getInstrument(session.audit_code);
   if (!instrument) return { ok: false as const, error: "Instrumen tidak ditemukan" };
-  const section = instrument.sections.find((item) => item.id === sectionId);
-  if (!section) return { ok: false as const, error: "Seksi tidak ditemukan" };
-  const prior = instrument.sections.filter((item) => instrument.sections.indexOf(item) < instrument.sections.indexOf(section));
-  if (prior.some((item) => !bundle.session.locked.includes(item.id))) {
+  const sectionIndex = instrument.sections.findIndex((item) => item.id === sectionId);
+  if (sectionIndex < 0) return { ok: false as const, error: "Seksi tidak ditemukan" };
+  const locked = (session.locked_section_ids ?? "").split(",").filter(Boolean);
+  const prior = instrument.sections.slice(0, sectionIndex);
+  if (prior.some((item) => !locked.includes(item.id))) {
     return { ok: false as const, error: "Selesaikan seksi sebelumnya terlebih dahulu" };
   }
-  const required = instrument.questions.filter((item) => item.sectionId === sectionId);
-  const known = new Set(bundle.answers.map((item) => item.questionId));
-  if (required.some((item) => !known.has(item.id))) {
-    return { ok: false as const, error: "Masih ada butir yang belum dijawab di seksi ini" };
-  }
-  if (bundle.session.locked.includes(sectionId)) return { ok: true as const };
-  const locked = [...bundle.session.locked, sectionId].join(",");
+  if (locked.includes(sectionId)) return { ok: true as const };
+  const required = instrument.questions.filter((item) => item.sectionId === sectionId).length;
   return withPool(async (pool) => {
-    await pool.query(`UPDATE test_sessions SET locked_section_ids = $2, updated_at = NOW() WHERE id = $1`, [
-      sessionId,
-      locked,
-    ]);
+    const counted = await pool.query(
+      `SELECT COUNT(*)::int AS saved
+       FROM test_questions tq
+       JOIN test_answers ta ON ta.question_id = tq.id AND ta.session_id = $1
+       WHERE tq.section_id = $2 AND tq.is_active = true`,
+      [sessionId, sectionId],
+    );
+    const saved = Number((counted.rows[0] as { saved: number } | undefined)?.saved ?? 0);
+    if (saved < required) {
+      return { ok: false as const, error: "Masih ada butir yang belum dijawab di seksi ini" };
+    }
+    const nextLocked = [...locked, sectionId].join(",");
+    await pool.query(
+      `UPDATE test_sessions
+       SET locked_section_ids = $2,
+           answered_count = (SELECT COUNT(*)::int FROM test_answers WHERE session_id = $1),
+           updated_at = NOW()
+       WHERE id = $1 AND status = 'IN_PROGRESS'`,
+      [sessionId, nextLocked],
+    );
     return { ok: true as const };
   });
 }

@@ -8,6 +8,7 @@ const schema = z.object({
   questionId: z.string().min(1),
   answer: z.enum(["YA", "TIDAK", "TIDAK_BERLAKU"]),
   note: z.string().max(1000).optional().default(""),
+  clientSeq: z.number().int().positive(),
 });
 
 export async function POST(req: Request) {
@@ -16,10 +17,15 @@ export async function POST(req: Request) {
   try {
     const body = schema.parse(await req.json());
     const result = await saveAnswer({ customerId: session.id, ...body });
-    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
-    return NextResponse.json({ data: { saved: true } });
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error, permanent: result.permanent }, { status: 400 });
+    }
+    return NextResponse.json({ data: { saved: true, applied: result.applied } });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Jawaban tidak valid", permanent: true }, { status: 400 });
+    }
     console.error("[POST /api/akun/jawaban]", error);
-    return NextResponse.json({ error: "Jawaban tidak valid" }, { status: 400 });
+    return NextResponse.json({ error: "Gagal menyimpan jawaban" }, { status: 500 });
   }
 }

@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { SapaanForm } from "./sapaan-form";
 import { getPesertaSession } from "@/lib/auth/session";
+import { getNamaSapaan } from "@/lib/db/customers";
 import { getReport, listCatalog, listOwnedAudits, listPortalOrders, listReports } from "@/lib/db/portal";
+import { formatAuditScore } from "@/lib/pdf/format";
 import { rupiah, statusLabel } from "@/lib/portal/labels";
 import { suggestUpsells } from "@/lib/portal/upsell";
 
@@ -10,11 +13,12 @@ export default async function AkunHome() {
   const session = await getPesertaSession();
   if (!session?.id) return null;
   const customerId = session.id;
-  const [owned, orders, reports, catalog] = await Promise.all([
+  const [owned, orders, reports, catalog, sapaan] = await Promise.all([
     listOwnedAudits(customerId),
     listPortalOrders(customerId),
     listReports(customerId),
     listCatalog(),
+    getNamaSapaan(customerId),
   ]);
   const latest = reports[0] ? await getReport(customerId, reports[0].session_id) : null;
   const upsells = suggestUpsells(latest, catalog, owned.map((item) => item.code));
@@ -42,6 +46,8 @@ export default async function AkunHome() {
           </Link>
         </div>
       </section>
+
+      <SapaanForm initial={sapaan} />
 
       <section style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 24, padding: 20 }}>
         <h2 style={{ marginTop: 0 }}>Paket audit Anda</h2>
@@ -76,7 +82,7 @@ export default async function AkunHome() {
         <section style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 24, padding: 20 }}>
           <h2 style={{ marginTop: 0 }}>Laporan terakhir</h2>
           <p>
-            {reports[0].name} · {statusLabel(reports[0].status).title} · {reports[0].score}%
+            {reports[0].name} · {statusLabel(reports[0].status).title} · {formatAuditScore(reports[0].score, reports[0].status)}
           </p>
           <Link href={`/akun/laporan?sesi=${reports[0].session_id}`} style={{ fontWeight: 800, color: "#047857" }}>
             Buka diagnosis

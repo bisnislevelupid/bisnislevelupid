@@ -322,6 +322,9 @@ export async function mutateResource(
       );
     }
     const writable = names.filter((name) => !READONLY.has(name) && name !== "id" && name !== "token_hash");
+    if (action === "update" && names.includes("edited_in_panel") && payload.edited_in_panel === undefined) {
+      payload.edited_in_panel = true;
+    }
     const entries = writable.filter((name) => payload[name] !== undefined);
     if (!entries.length) throw new Error("Tidak ada kolom untuk disimpan");
     const values = entries.map((name) => {

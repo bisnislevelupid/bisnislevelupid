@@ -1,4 +1,5 @@
 import { cachedJson } from "@/lib/cache";
+import { CURRENT_PDF_VERSION } from "@/lib/pdf/version";
 import { withPool } from "@/lib/db";
 import { calculateResult, type AnswerCode, type AuditCode } from "@/lib/scoring";
 import { AUDIT_BY_PHASE, codesFromUnlocked } from "@/lib/portal/labels";
@@ -633,8 +634,8 @@ export async function submitSession(customerId: string, sessionId: string) {
         `INSERT INTO test_results (
            session_id, customer_id, audit_transition_id, total_questions, total_key_questions,
            answered_ya, answered_tidak, answered_na, key_ya, key_tidak, overall_score, key_pass,
-           status, from_phase_id, to_phase_id
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+           status, from_phase_id, to_phase_id, indicator_json, pdf_version
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17)
          RETURNING id::text`,
         [
           sessionId,
@@ -647,11 +648,13 @@ export async function submitSession(customerId: string, sessionId: string) {
           counts.na,
           counts.keyYa,
           counts.keyTidak,
-          scored.score ?? 0,
+          scored.score,
           scored.kunciTidak === 0,
           scored.status,
           phase.rows[0].from_phase_id,
           phase.rows[0].to_phase_id,
+          JSON.stringify({ triad: scored.triad, agBlock: scored.agBlock }),
+          CURRENT_PDF_VERSION,
         ],
       );
       const resultId = inserted.rows[0].id as string;

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import { getPesertaSession } from "@/lib/auth/session";
 import { placeOrder } from "@/lib/checkout";
+import { namaSapaanSchema } from "@/lib/validations/customer";
 import { getCheckoutProfile } from "@/lib/db/public";
 import { notifyOrderCreated } from "@/lib/email/notify";
 import { runLater } from "@/lib/notify/later";
@@ -18,6 +19,7 @@ const schema = z.object({
   employeeRange: z.string().min(1),
   monthlyRevenue: z.string().min(1),
   ownerRole: z.string().min(1),
+  namaSapaan: namaSapaanSchema.optional(),
   paymentMethodId: z.string().min(1),
   coupon: z.string().optional(),
   auditCode: z.string().trim().max(20).optional(),
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ data: { invoice: result.invoice, redirect: result.redirect } });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Checkout gagal";
+    const message = err instanceof ZodError ? err.issues[0]?.message ?? "Data tidak valid" : err instanceof Error ? err.message : "Checkout gagal";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

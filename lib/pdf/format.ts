@@ -108,14 +108,41 @@ export function hampirGapLine(
 }
 
 const META_SENTENCE =
-  /butir tanpa panduan peserta|panduan instrumen|berstatus draf di basis data|owner dapat meninjau|sebagai pengganti|support_whatsapp|SUPPORT_WHATSAPP|narasi seksi [a-j] [^:]+:/i;
+  /butir tanpa panduan peserta|panduan instrumen|berstatus draf di basis data|owner dapat meninjau|sebagai pengganti|support_whatsapp|SUPPORT_WHATSAPP|narasi seksi [a-j] [^:]+:|urutan status/i;
+
+export function plainGlyphs(value: string) {
+  return value
+    .replace(/\u2192/g, " ke ")
+    .replace(/\u2605/g, "bintang ")
+    .replace(/[ ]{2,}/g, " ")
+    .trim();
+}
+
+export function sentenceCase(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed !== trimmed.toUpperCase()) return trimmed;
+  const lower = trimmed.toLowerCase();
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
+function calmShouting(sentence: string) {
+  const calmed = sentence.replace(/(?:\b\p{Lu}{3,}\b[\s,:;—\-–]*){3,}/gu, (chunk) => {
+    const lower = chunk.toLocaleLowerCase("id-ID");
+    return lower.charAt(0).toLocaleUpperCase("id-ID") + lower.slice(1);
+  });
+  const letters = calmed.replace(/[^\p{L}]/gu, "");
+  if (letters.length < 8) return calmed;
+  const upper = letters.replace(/[^\p{Lu}]/gu, "").length;
+  if (upper / letters.length < 0.7) return calmed;
+  const lower = calmed.toLocaleLowerCase("id-ID");
+  return lower.charAt(0).toLocaleUpperCase("id-ID") + lower.slice(1);
+}
 
 export function publicCopy(text: string | null | undefined) {
   if (!text) return "";
-  return text
-    .replace(/\s+/g, " ")
+  return plainGlyphs(text)
     .split(/(?<=[.!?])\s+/)
-    .map((part) => part.trim())
+    .map((part) => calmShouting(part.trim()))
     .filter((part) => part && !META_SENTENCE.test(part))
     .join(" ")
     .trim();
@@ -140,7 +167,7 @@ export function statusActionLine(input: {
 }
 
 export function crisisGateLabel(input: { status: string; phaseNumber: number | null; crisisTitle: string | null }) {
-  const title = input.crisisTitle?.trim();
+  const title = sentenceCase(input.crisisTitle?.trim() ?? "");
   if (!title || !input.phaseNumber) return null;
   const passed = input.status === "SIAP_NAIK" ? "sudah terlewati" : "belum terlewati";
   return `Gerbang Fase ${input.phaseNumber}: ${title} — ${passed}`;

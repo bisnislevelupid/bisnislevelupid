@@ -101,10 +101,12 @@ export async function getReportDocument(customerId: string, sessionId: string, o
       `SELECT r.session_id::text, r.status, r.overall_score::text AS overall_score, r.key_tidak, r.key_ya, r.total_key_questions,
               r.answered_ya, r.answered_tidak, r.answered_na, r.total_questions,
               s.completed_at::text, s.company_name, s.respondent_name, s.business_field, s.business_start_year, s.external_auditor_name,
+              o.invoice_code,
               a.code AS audit_code, a.name AS audit_name, a.gate_desc, a.passing_score::text AS passing_score,
               pf.name_label AS from_phase, pt.name_label AS to_phase, pf.phase_number, pf.crisis_title, pf.crisis_desc, pt.description AS next_phase
        FROM test_results r
        JOIN test_sessions s ON s.id = r.session_id
+       JOIN orders o ON o.id = s.order_id
        JOIN audit_transitions a ON a.id = r.audit_transition_id
        JOIN phases pf ON pf.id = r.from_phase_id
        JOIN phases pt ON pt.id = r.to_phase_id
@@ -129,6 +131,7 @@ export async function getReportDocument(customerId: string, sessionId: string, o
           business_field: string | null;
           business_start_year: number | null;
           external_auditor_name: string | null;
+          invoice_code: string | null;
           audit_code: string;
           audit_name: string;
           gate_desc: string | null;
@@ -401,6 +404,7 @@ export async function getReportDocument(customerId: string, sessionId: string, o
 
     return {
       sessionId: row.session_id,
+      sessionCode: row.invoice_code,
       auditCode: row.audit_code,
       auditName: row.audit_name,
       gateDesc: row.gate_desc,

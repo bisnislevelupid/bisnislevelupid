@@ -60,6 +60,7 @@ export type ReportUpsell = {
 
 export type ReportDocument = {
   sessionId: string;
+  sessionCode: string | null;
   auditCode: string;
   auditName: string;
   gateDesc: string | null;

@@ -84,7 +84,7 @@ export function pickPriorities(source: PrioritySource): PriorityItem[] {
     usedSections.add(section.code);
     picked.push({
       title: section.headline || `Seksi ${section.code}. ${section.name}`,
-      reason: `Skor butir biasa seksi ini ${section.score}% (band ${band === "LOW" ? "di bawah 60%" : "60–79%"}).`,
+      reason: `Skor butir biasa seksi ini ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(section.score ?? 0)}% (band ${band === "LOW" ? "di bawah 60%" : "60–79%"}).`,
       kind: "section",
     });
   }

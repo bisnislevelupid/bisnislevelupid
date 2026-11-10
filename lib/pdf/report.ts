@@ -13,6 +13,7 @@ import {
   formatAuditScore,
   formatPercent,
   hampirGapLine,
+  plainGlyphs,
   indicatorPassLabel,
   isRiskSection,
   publicCopy,
@@ -23,6 +24,7 @@ import {
   triadGroupNote,
 } from "@/lib/pdf/format";
 import { pickPriorities, selectResources } from "@/lib/pdf/spec-rules";
+import { AUDIT_3_4_TRIAD, AUDIT_4_5_AG } from "@/lib/scoring";
 import type { ReportDocument, ReportGap, ReportRecommendation, ReportSection } from "@/lib/pdf/types";
 
 type Doc = PDFKit.PDFDocument;
@@ -87,8 +89,7 @@ function greeting(report: ReportDocument) {
 
 function coachName(report: ReportDocument) {
   const raw = report.coach?.name?.trim() || "Riza Zacharias";
-  if (report.status === "TIDAK_DAPAT_DINILAI") return raw.replace(/^SIMULASI\s+/i, "") || "Riza Zacharias";
-  return raw;
+  return raw.replace(/^SIMULASI\s+/i, "") || "Riza Zacharias";
 }
 
 function coachRole(report: ReportDocument) {
@@ -123,19 +124,20 @@ function pricedOffers(report: ReportDocument) {
 type Canvas = {
   doc: Doc;
   chapter: string;
+  painted: string;
   chapters: string[];
   page: number;
 };
 
 function fonts() {
-  // symbols.ttf hanya untuk → dan ★. Tebal memakai Albert Sans Bold/ExtraBold dan Cabin Bold, bukan sintesis DejaVu.
+  // Panah dan bintang ditulis sebagai teks supaya font subset simbol tidak ikut ter-embed.
   const dir = path.join(process.cwd(), "assets/fonts");
   const files = {
     heading: path.join(dir, "AlbertSans-ExtraBold.ttf"),
     label: path.join(dir, "AlbertSans-Bold.ttf"),
+    albert: path.join(dir, "AlbertSans-Regular.ttf"),
     body: path.join(dir, "Cabin-Regular.ttf"),
     bodyBold: path.join(dir, "Cabin-Bold.ttf"),
-    symbol: path.join(dir, "symbols.ttf"),
   };
   for (const file of Object.values(files)) {
     if (!existsSync(file)) throw new Error("Font laporan tidak ditemukan di assets/fonts");
@@ -174,7 +176,8 @@ function ensure(canvas: Canvas, height: number) {
   if (doc.y + height <= doc.page.height - doc.page.margins.bottom) return;
   doc.addPage();
   canvas.page += 1;
-  canvas.chapters[canvas.page] = canvas.chapter;
+  const continued = canvas.painted === canvas.chapter && !canvas.chapter.includes("(lanjutan)");
+  canvas.chapters[canvas.page] = continued ? `${canvas.chapter} (lanjutan)` : canvas.chapter;
 }
 
 function gap(doc: Doc, amount = 8) {
@@ -191,7 +194,8 @@ function write(
   const fontName = options.fontName ?? "Body";
   const color = options.color ?? INK;
   const size = options.size ?? 10.5;
-  const kit: PDFKit.Mixins.TextOptions = {
+  doc.font(fontName).fontSize(size).fillColor(color);
+  doc.text(plainGlyphs(value), x, y, {
     width: options.width,
     height: options.height,
     lineGap: options.lineGap,
@@ -200,21 +204,13 @@ function write(
     ellipsis: options.ellipsis,
     characterSpacing: options.characterSpacing,
     link: options.link,
-  };
-  const parts = value.split(/(→|★)/).filter((part) => part.length > 0);
-  parts.forEach((part, index) => {
-    const symbol = part === "→" || part === "★";
-    doc.font(symbol ? "Symbol" : fontName).fontSize(size).fillColor(color);
-    const next = { ...kit, continued: index < parts.length - 1 };
-    if (index === 0) doc.text(part, x, y, next);
-    else doc.text(part, next);
   });
 }
 
 function h1(canvas: Canvas, text: string) {
   const doc = canvas.doc;
   canvas.chapter = text;
-  ensure(canvas, 36);
+  ensure(canvas, 78);
   remember(canvas);
   write(doc, text, doc.page.margins.left, doc.y, { fontName: "Heading", size: 16, color: FOREST, width: contentWidth(doc) });
   gap(doc, 3);
@@ -222,6 +218,7 @@ function h1(canvas: Canvas, text: string) {
   doc.moveTo(doc.page.margins.left, doc.y).lineTo(doc.page.margins.left + 64, doc.y).lineWidth(2.5).strokeColor(EMERALD).stroke();
   doc.restore();
   gap(doc, 8);
+  canvas.painted = canvas.chapter;
 }
 
 function h2(canvas: Canvas, text: string) {
@@ -489,7 +486,7 @@ function sectionChart(canvas: Canvas, sections: ReportSection[]) {
   const doc = canvas.doc;
   const x = doc.page.margins.left;
   const w = contentWidth(doc);
-  const valueW = 124;
+  const valueW = 168;
   const rows = sections.map((section) => {
     const name = `${section.code}. ${section.name}`;
     doc.font("Label").fontSize(9);
@@ -501,7 +498,7 @@ function sectionChart(canvas: Canvas, sections: ReportSection[]) {
   let y = top + 12;
   const barYs: number[] = [];
   for (const row of rows) {
-    write(doc, row.name, x, y, { fontName: "Label", size: 9, color: INK, width: w - valueW });
+    write(doc, row.name, x, y, { fontName: "Albert", size: 9, color: INK, width: w - valueW });
     const afterName = doc.y;
     const value = row.section.score === null ? "—" : `${formatPercent(row.section.score)} · ${row.tone.label}`;
     write(doc, value, x + w - valueW, y, {
@@ -510,8 +507,6 @@ function sectionChart(canvas: Canvas, sections: ReportSection[]) {
       color: row.tone.text,
       width: valueW,
       align: "right",
-      height: 12,
-      lineBreak: false,
     });
     const barY = afterName + 3;
     doc.save();
@@ -557,29 +552,31 @@ function miniBar(canvas: Canvas, label: string, score: number | null, note: stri
   const marker = x + w * 0.8;
   doc.moveTo(marker, barY - 2).lineTo(marker, barY + 10).lineWidth(1).strokeColor(EMERALD_TEXT).stroke();
   doc.restore();
-  write(doc, note, x, barY + 12, { fontName: "Body", size: 9, color: MUTED, width: w, height: 14, lineBreak: false, ellipsis: true });
-  doc.y = barY + 28;
+  write(doc, note, x, barY + 14, { fontName: "Body", size: 9, color: MUTED, width: w, lineGap: 1 });
+  doc.y += 6;
 }
 
 function substitute(section: ReportSection) {
   return [section.measures, section.concepts, section.framework].filter(Boolean).join(" ");
 }
 
+const GENERIC_WHY = /butir \d+ mengukur bagian/i;
+const GENERIC_RISK = /jawaban tidak pada butir ini menahan skor seksi/i;
+const GENERIC_STEP = /^(tulis bukti minggu ini untuk butir \d+|pilih satu perubahan kecil)/i;
+const GENERIC_EDUCATION = /narasi seksi|sebagai pengganti|tidak punya panduan|butir tanpa panduan/i;
+
 function specificInsight(item: ReportGap) {
-  const genericWhy = /^Butir \d+ mengukur bagian/i;
-  const genericRisk = /Jawaban Tidak pada butir ini menahan skor seksi/i;
-  const genericStep = /^Tulis bukti minggu ini untuk butir \d+/i;
   const why = publicCopy(item.why);
   const risk = publicCopy(item.risk);
-  const steps = item.steps.map((step) => step.trim()).filter((step) => step && !genericStep.test(step));
+  const steps = item.steps.map((step) => step.trim()).filter((step) => step && !GENERIC_STEP.test(step));
   const education = publicCopy(item.education);
   const guidance = customerGuidance(item.guidance);
   return Boolean(
-    (guidance && !META_LINE.test(guidance)) ||
-      (why && !genericWhy.test(why)) ||
-      (risk && !genericRisk.test(risk)) ||
+    (guidance && !META_LINE.test(guidance) && !GENERIC_EDUCATION.test(guidance)) ||
+      (why && !GENERIC_WHY.test(why)) ||
+      (risk && !GENERIC_RISK.test(risk)) ||
       steps.length ||
-      (education && !META_LINE.test(education)),
+      (education && !META_LINE.test(education) && !GENERIC_EDUCATION.test(education)),
   );
 }
 
@@ -592,10 +589,10 @@ function gapLines(item: ReportGap, section: ReportSection) {
   const education = publicCopy(item.education);
   const guidance = customerGuidance(item.guidance);
   const narrative = publicCopy(substitute(section) || section.gapReading || section.measures);
-  if (guidance && !META_LINE.test(guidance)) lines.push(guidance);
-  else if (why && !/^Butir \d+ mengukur bagian/i.test(why)) lines.push(why);
-  else if (narrative) lines.push(narrative);
-  if (risk && !/Jawaban Tidak pada butir ini menahan skor seksi/i.test(risk)) lines.push(`Risiko bila tetap Tidak: ${risk}`);
+  if (guidance && !META_LINE.test(guidance) && !GENERIC_EDUCATION.test(guidance)) lines.push(guidance);
+  else if (why && !GENERIC_WHY.test(why)) lines.push(why);
+  else if (narrative) lines.push(narrative.split(/(?<=[.!?])\s+/)[0] ?? "");
+  if (risk && !GENERIC_RISK.test(risk)) lines.push(`Risiko bila tetap Tidak: ${risk}`);
   if (education && !META_LINE.test(education)) lines.push(education);
   return lines.filter((line) => line && !META_LINE.test(line));
 }
@@ -632,7 +629,7 @@ function keyCard(canvas: Canvas, item: ReportGap, section: ReportSection) {
   doc.rect(x, y, 5, box).fill(DANGER);
   doc.roundedRect(x, y, w, box, 10).lineWidth(1).strokeColor(DANGER).stroke();
   doc.restore();
-  write(doc, `★ Bintang · Tidak · #${item.number}`, x + 16, y + 10, { fontName: "Label", size: 10, color: DANGER_TEXT, width: inner });
+  write(doc, `Bintang · Tidak · #${item.number}`, x + 16, y + 10, { fontName: "Label", size: 10, color: DANGER_TEXT, width: inner });
   let cursor = doc.y + 4;
   for (const line of lines) {
     write(doc, line, x + 16, cursor, { fontName: "Body", size: 10.5, color: SLATE, width: inner, lineGap: 2 });
@@ -650,13 +647,13 @@ function pill(canvas: Canvas, label: string, url: string) {
   const doc = canvas.doc;
   const x = doc.page.margins.left;
   const w = 168;
-  const h = 26;
+  const h = 30;
   ensure(canvas, h + 4);
   const y = doc.y;
   doc.save();
   doc.roundedRect(x, y, w, h, 13).fill(EMERALD);
   doc.fillColor(WHITE).font("Label").fontSize(10);
-  doc.text(label, x, y + 7, { width: w, align: "center", height: 14, lineBreak: false });
+  doc.text(label, x, y + 9, { width: w, align: "center", height: 14, lineBreak: false });
   doc.link(x, y, w, h, url);
   doc.restore();
   doc.fillColor(MUTED).font("Body").fontSize(8);
@@ -691,8 +688,52 @@ function productCard(canvas: Canvas, name: string, detail: string, priceLine: st
   doc.y = y + box + 8;
 }
 
+function footerIdentity(report: ReportDocument) {
+  return [plainGlyphs(report.auditName), report.sessionCode?.trim()].filter(Boolean).join(" · ");
+}
+
+function statusSafe(text: string, status: string) {
+  const copy = publicCopy(text);
+  if (!copy) return copy;
+  return copy
+    .split(/(?<=[.!?])\s+/)
+    .filter((part) => {
+      if (/gerbang fase \d/i.test(part)) return false;
+      if (status !== "SIAP_NAIK" && /gerbang utama sudah terbuka|gerbang sudah terbuka/i.test(part)) return false;
+      return true;
+    })
+    .join(" ")
+    .trim();
+}
+
+function sectionBrief(section: ReportSection) {
+  const seen = new Set<string>();
+  const sentences: string[] = [];
+  for (const chunk of [section.measures, section.whyItMatters, section.concepts, section.commonMistakes, section.gapReading]) {
+    const copy = publicCopy(chunk);
+    if (!copy) continue;
+    for (const sentence of copy.split(/(?<=[.!?])\s+/)) {
+      const key = sentence.slice(0, 70).toLowerCase();
+      if (!sentence || seen.has(key)) continue;
+      seen.add(key);
+      sentences.push(sentence);
+      if (sentences.length === 4) return sentences.join(" ");
+    }
+  }
+  return sentences.join(" ");
+}
+
+function withFailedKeys(report: ReportDocument, numbers: readonly number[], note: string) {
+  if (!/belum/i.test(note)) return note;
+  const wanted = new Set(numbers);
+  const failed = report.sections.flatMap((section) =>
+    section.gaps.filter((gap) => gap.isKey && wanted.has(gap.number)).map((gap) => gap.number),
+  );
+  if (!failed.length) return note;
+  return `${note.replace(/\.$/, "")}. Butir bintang ${failed.map((item) => `#${item}`).join(", ")} belum.`;
+}
+
 function paintLampiran(canvas: Canvas, report: ReportDocument) {
-  freshPage(canvas, "Lampiran A. Butir Tidak dan Tidak Berlaku");
   h1(canvas, "Lampiran A. Butir Tidak dan Tidak Berlaku");
   para(canvas, "Daftar ini melengkapi kartu di bab sebelumnya. Butir bintang ditandai.");
   let any = false;
@@ -700,16 +741,14 @@ function paintLampiran(canvas: Canvas, report: ReportDocument) {
     const tidak = section.gaps;
     if (!tidak.length) continue;
     any = true;
-    h2(canvas, `Seksi ${section.code}. ${section.name}`);
-    for (const item of tidak) bullet(canvas, `${item.isKey ? "★ " : ""}#${item.number} Tidak. ${publicCopy(item.text)}`);
+    const keys = tidak.filter((item) => item.isKey).map((item) => `#${item.number}`);
+    const plain = tidak.filter((item) => !item.isKey).map((item) => `#${item.number}`);
+    const bits = [keys.length ? `bintang ${keys.join(", ")}` : "", plain.length ? plain.join(", ") : ""].filter(Boolean);
+    para(canvas, `Seksi ${section.code}. ${section.name}: ${bits.join("; ")}.`);
   }
   if (report.skippedKeys.length) {
     any = true;
-    h2(canvas, "Tidak Berlaku");
-    for (const item of report.skippedKeys) {
-      bullet(canvas, `#${item.number} · ${item.sectionName}. ${publicCopy(item.text)}`);
-      para(canvas, KEY_NA_NOTE);
-    }
+    para(canvas, `Tidak Berlaku: ${report.skippedKeys.map((item) => `#${item.number} ${item.sectionName}`).join(", ")}. ${KEY_NA_NOTE}`);
   }
   if (!any) para(canvas, "Tidak ada butir Tidak atau Tidak Berlaku pada hasil ini.");
 }
@@ -725,8 +764,6 @@ function paintCta(canvas: Canvas, report: ReportDocument) {
   });
   if (report.status === "TIDAK_DAPAT_DINILAI") {
     para(canvas, "Hasil ini tidak representatif, jadi laporan tidak menawarkan produk berbayar.");
-  } else {
-    para(canvas, "Harga pada halaman ini berlabel SIMULASI. Angka mengikuti katalog yang sudah ada dan bukan penawaran mengikat.");
   }
   const offers = pricedOffers(report);
   for (const item of ctas.items.slice(0, 3)) {
@@ -759,8 +796,10 @@ function paintCta(canvas: Canvas, report: ReportDocument) {
   write(doc, profile, x + 72, y + 26, { fontName: "Body", size: 10.5, color: SLATE, width: w - 88, lineGap: 2 });
   doc.y = y + box + 10;
   para(canvas, "Laporan ini adalah diagnosis operasional BisnisLevelUp.id, bukan nasihat hukum, pajak, ketenagakerjaan, atau keuangan. Angka dan dasar aturan yang disebut di instrumen perlu dikonfirmasi ke konsultan yang berwenang, karena ketentuan dapat berubah.", 9);
-  para(canvas, `Laporan ini juga tersimpan di dashboard-mu. ${pdfHref(`/akun/laporan?sesi=${report.sessionId}`)}`, 9);
-  para(canvas, `BisnisLevelUp.id · www.bisnislevelup.id · sesi ${report.sessionId} · ${formatWib(report.completedAt) || "—"}`, 9);
+  const primary = ctas.items.find((item) => item.href);
+  if (primary?.href) para(canvas, pdfHref(primary.href), 9);
+  para(canvas, "Laporan ini juga tersimpan di dashboard Anda.", 9);
+  para(canvas, footerIdentity(report), 9);
 }
 
 function paint(canvas: Canvas, report: ReportDocument) {
@@ -777,16 +816,12 @@ function paint(canvas: Canvas, report: ReportDocument) {
   gauge(canvas, report);
   para(canvas, scoreBasisLine(report));
   if (gate) para(canvas, gate);
-  write(doc, `${report.fromPhase} ke ${report.toPhase}`, doc.page.margins.left, doc.y, {
-    fontName: "Label",
-    size: 12,
-    color: FOREST,
-    width: contentWidth(doc),
-  });
-  gap(doc, 8);
   if (report.narrative) {
-    callout(canvas, publicCopy(report.narrative.headline), publicCopy(`${report.narrative.summary} ${report.narrative.implication}`), MINT, EMERALD, EMERALD_TEXT);
-    para(canvas, publicCopy(report.narrative.focus));
+    const headline = statusSafe(report.narrative.headline, report.status);
+    const summary = statusSafe(`${report.narrative.summary} ${report.narrative.implication}`, report.status);
+    if (headline || summary) callout(canvas, headline || "Ringkasan", summary || headline, MINT, EMERALD, EMERALD_TEXT);
+    const focus = statusSafe(report.narrative.focus, report.status);
+    if (focus && focus !== summary) para(canvas, focus);
   }
   const priorities = pickPriorities({
     status: report.status,
@@ -810,33 +845,31 @@ function paint(canvas: Canvas, report: ReportDocument) {
     h2(canvas, "3 Prioritas Utama");
     for (const item of priorities) bullet(canvas, `${item.title}. ${publicCopy(item.reason)}`);
   }
-  if (report.gateDesc) para(canvas, publicCopy(report.gateDesc));
+  const gateDetail = statusSafe(report.gateDesc ?? "", report.status);
+  if (gateDetail && gate && !gateDetail.includes(gate)) para(canvas, gateDetail);
 
   h1(canvas, "Bab 2. Skor per seksi");
+  para(canvas, `${report.fromPhase} ke ${report.toPhase}`);
   sectionChart(canvas, report.sections);
   if (report.triad) {
     h2(canvas, "Indikator siap: sistem, kas, orang");
     para(canvas, "Di audit fase 3 ke 4, tiga kelompok ini adalah keterangan tambahan. Status tetap mengikuti gerbang bintang dan skor butir biasa.");
     for (const group of report.triad) {
-      miniBar(canvas, group.label, group.scorePct, triadGroupNote(group.scorePct, group.ready));
+      const spec = AUDIT_3_4_TRIAD.find((item) => item.id === group.id);
+      miniBar(canvas, group.label, group.scorePct, withFailedKeys(report, spec?.keyNumbers ?? [], triadGroupNote(group.scorePct, group.ready)));
     }
   }
   if (report.agBlock) {
     h2(canvas, "Lean Again dan identitas berjalan bersama");
     para(canvas, agTogetherNote(report.agBlock.a, report.agBlock.g));
-    for (const group of [report.agBlock.a, report.agBlock.g]) {
-      miniBar(canvas, group.label, group.scorePct, indicatorPassLabel(group.scorePct, group.ready));
-    }
+    miniBar(canvas, report.agBlock.a.label, report.agBlock.a.scorePct, withFailedKeys(report, AUDIT_4_5_AG.a.keyNumbers, indicatorPassLabel(report.agBlock.a.scorePct, report.agBlock.a.ready)));
+    miniBar(canvas, report.agBlock.g.label, report.agBlock.g.scorePct, withFailedKeys(report, AUDIT_4_5_AG.g.keyNumbers, indicatorPassLabel(report.agBlock.g.scorePct, report.agBlock.g.ready)));
   }
 
   if (report.skippedKeys.length) {
     h2(canvas, "Butir kunci yang dilewati");
-    para(canvas, "Butir ini tetap dihitung lulus gerbang. Satu jawaban Tidak Berlaku pada butir bintang tidak menahan kenaikan fase.");
-    for (const item of report.skippedKeys) {
-      h2(canvas, `#${item.number} · ${item.sectionName}`);
-      para(canvas, item.text);
-      callout(canvas, "Tidak Berlaku", KEY_NA_NOTE, PAPER, MUTED, INK);
-    }
+    para(canvas, KEY_NA_NOTE);
+    para(canvas, report.skippedKeys.map((item) => `#${item.number} ${item.sectionName}`).join(", "));
   }
 
   const keyGaps = report.sections.flatMap((section) => section.gaps.filter((item) => item.isKey).map((item) => ({ item, section })));
@@ -847,61 +880,42 @@ function paint(canvas: Canvas, report: ReportDocument) {
   for (const entry of keyGaps) keyCard(canvas, entry.item, entry.section);
 
   const risks = report.sections.filter((section) => isRiskSection(section.score));
-  freshPage(canvas, "Bab 4. Area risiko");
   h1(canvas, "Bab 4. Area risiko");
   if (!risks.length) {
-    callout(canvas, "AREA RISIKO", "Tidak ada seksi dengan skor butir biasa di bawah 50%. Seksi yang tidak dinilai tidak dihitung sebagai area risiko.", PAPER, GRAY, MUTED);
+    para(canvas, "Tidak ada seksi dengan skor butir biasa di bawah 50%. Seksi yang tidak dinilai tidak dihitung sebagai area risiko.");
   } else {
-    callout(canvas, "AREA RISIKO", riskAreaNote(report.status), RISK_BG, DANGER, DANGER_TEXT);
+    para(canvas, riskAreaNote(report.status));
     for (const section of risks) {
-      h2(canvas, `Area risiko · Seksi ${section.code}. ${section.name}`);
-      miniBar(canvas, `${section.code}. ${section.name}`, section.score, section.gapReading || "Tutup butir Tidak di seksi ini sebelum fase berikutnya menambah beban.");
-      para(canvas, `Skor butir biasa ${formatPercent(section.score ?? 0)}. ${section.gapReading || "Tutup butir Tidak di seksi ini sebelum fase berikutnya menambah beban."}`);
+      bullet(canvas, `${section.code}. ${section.name}: ${formatPercent(section.score ?? 0)}.`);
     }
   }
 
+  h1(canvas, "Seksi");
   for (const section of report.sections) {
-    freshPage(canvas, `Seksi ${section.code}. ${section.name}`);
-    h1(canvas, `Seksi ${section.code}. ${section.name}`);
-    const keyNote = section.keyTotal === 0 ? "Tidak ada butir kunci." : section.keyPass ? "Gerbang kunci seksi ini lulus." : "Ada butir kunci Tidak di seksi ini.";
-    const note = section.score === null ? "Tidak ada butir biasa yang dinilai di seksi ini. Bukan nol persen." : keyNote;
-    miniBar(canvas, "Skor butir biasa", section.score, note);
-    if (isRiskSection(section.score)) callout(canvas, "AREA RISIKO", riskAreaNote(report.status), RISK_BG, DANGER, DANGER_TEXT);
-    if (section.video) {
-      para(canvas, `Video dari kanal @JalanLangitRiza: ${section.video.title}`);
-      pill(canvas, "Tonton video", section.video.url);
+    h2(canvas, `Seksi ${section.code}. ${section.name}`);
+    const failed = section.gaps.filter((item) => item.isKey).map((item) => `#${item.number}`);
+    const keyNote = section.score === null
+      ? "Tidak ada butir biasa yang dinilai. Bukan nol persen."
+      : failed.length
+        ? `Gerbang kelompok belum. Butir bintang ${failed.join(", ")} belum.`
+        : section.keyTotal === 0
+          ? "Tidak ada butir kunci."
+          : "Gerbang kunci seksi ini lulus.";
+    miniBar(canvas, "Skor butir biasa", section.score, keyNote);
+    const brief = sectionBrief(section);
+    if (brief) para(canvas, brief);
+    const shown = section.strengths.slice(0, 4);
+    const hidden = section.strengths.length - shown.length;
+    if (shown.length) {
+      h2(canvas, "Yang sudah jalan");
+      for (const item of shown) bullet(canvas, `${item.isKey ? "Kunci · " : ""}#${item.number} ${plainGlyphs(item.text)}`);
+      if (hidden > 0) para(canvas, `+${hidden} lainnya.`);
     }
-    if (section.description) para(canvas, publicCopy(section.description));
-    const measures = publicCopy(section.measures);
-    if (measures) callout(canvas, "Apa yang diukur", measures, MINT, EMERALD, EMERALD_TEXT);
-    if (section.whyItMatters) para(canvas, publicCopy(section.whyItMatters));
-    const concepts = publicCopy(section.concepts);
-    if (concepts) {
-      h2(canvas, "Kerangka dan konsep");
-      para(canvas, concepts);
-    }
-    const framework = publicCopy(section.framework);
-    if (framework) para(canvas, framework);
-    const mistakes = publicCopy(section.commonMistakes);
-    if (mistakes) {
-      h2(canvas, "Kesalahan yang sering terjadi");
-      para(canvas, mistakes);
-    }
-    h2(canvas, "Yang sudah jalan");
-    para(canvas, section.strengths.length ? publicCopy(section.strengthReading) || "Butir berikut dijawab Ya." : publicCopy(section.strengthReading) || "Belum ada butir Ya yang bisa disebut kekuatan di seksi ini.");
-    for (const item of section.strengths.slice(0, 6)) bullet(canvas, `${item.isKey ? "Kunci · " : ""}#${item.number} ${item.text}`);
-    h2(canvas, "Celah");
     const plainGaps = section.gaps.filter((item) => !item.isKey);
     const detailed = plainGaps.filter((item) => specificInsight(item));
     const generic = plainGaps.filter((item) => !specificInsight(item));
-    if (!plainGaps.length) para(canvas, publicCopy(section.gapReading) || "Tidak ada butir Tidak di seksi ini.");
-    else if (section.gapReading) para(canvas, publicCopy(section.gapReading));
-    for (const item of detailed) paintGap(canvas, item, section);
     if (generic.length) para(canvas, `Celah: ${generic.map((item) => `#${item.number}`).join(", ")}.`);
-    if (!section.keyPass) {
-      const failed = section.gaps.filter((item) => item.isKey).map((item) => `#${item.number}`);
-      if (failed.length) para(canvas, `Seksi ini punya butir kunci yang belum terpenuhi (${failed.join(", ")}). Lihat Bab 3.`);
-    }
+    for (const item of detailed) paintGap(canvas, item, section);
   }
 
   freshPage(canvas, "Bab 5. Rencana 30, 60, dan 90 hari");
@@ -914,9 +928,17 @@ function paint(canvas: Canvas, report: ReportDocument) {
     { n: "60", title: "60 hari", lines: plan.d60, color: EMERALD_TEXT },
     { n: "90", title: "90 hari", lines: plan.d90, color: FOREST },
   ];
+  const seenPlan = new Set<string>();
   for (const horizon of horizons) {
+    const lines = horizon.lines.filter((line) => {
+      const key = line.toLowerCase().replace(/#\d+/g, "#").replace(/butir \d+/gi, "butir");
+      if (seenPlan.has(key)) return false;
+      seenPlan.add(key);
+      return true;
+    });
+    if (!lines.length) continue;
     doc.font("Body").fontSize(10.5);
-    const textH = horizon.lines.reduce((sum, line) => sum + doc.heightOfString(line, { width: contentWidth(doc) - 36, lineGap: 1 }) + 4, 28);
+    const textH = lines.reduce((sum, line) => sum + doc.heightOfString(line, { width: contentWidth(doc) - 36, lineGap: 1 }) + 4, 28);
     ensure(canvas, textH);
     const y = doc.y;
     doc.save();
@@ -926,22 +948,16 @@ function paint(canvas: Canvas, report: ReportDocument) {
     doc.restore();
     write(doc, horizon.title, doc.page.margins.left + 30, y + 4, { fontName: "Label", size: 12, color: INK, width: contentWidth(doc) - 30 });
     doc.y = Math.max(doc.y, y + 26);
-    if (!horizon.lines.length) para(canvas, "Belum ada butir untuk horison ini.");
-    for (const line of horizon.lines) bullet(canvas, line);
+    for (const line of lines) bullet(canvas, plainGlyphs(line));
   }
 
-  freshPage(canvas, "Bab 6. Gerbang krisis dan fase berikutnya");
   h1(canvas, "Bab 6. Gerbang krisis dan fase berikutnya");
-  para(canvas, `${report.fromPhase} → ${report.toPhase}`);
-  if (gate) para(canvas, gate);
-  para(canvas, statusActionLine(report));
   if (report.closing) {
-    h2(canvas, report.closing.nextPhaseTitle);
+    h2(canvas, plainGlyphs(report.closing.nextPhaseTitle));
     para(canvas, publicCopy(report.closing.nextPhasePreview));
     para(canvas, publicCopy(report.closing.prepareText));
   } else if (report.nextPhaseDescription) para(canvas, publicCopy(report.nextPhaseDescription));
 
-  freshPage(canvas, "Bab 7. Sumber belajar");
   h1(canvas, "Bab 7. Sumber belajar");
   const videos = report.sections.filter((section) => section.video);
   if (!videos.length) para(canvas, "Belum ada video kanal @JalanLangitRiza yang dipasangkan ke seksi pada audit ini.");
@@ -960,7 +976,6 @@ function paint(canvas: Canvas, report: ReportDocument) {
     callout(canvas, `${item.critical ? "Prioritas kritis · " : ""}${item.type} · ${item.title}`, bits || item.title, item.critical ? "#fffbeb" : MINT, item.critical ? AMBER_TEXT : EMERALD, item.critical ? AMBER_TEXT : EMERALD_TEXT);
   }
 
-  freshPage(canvas, "Bab 8. Penutup");
   h1(canvas, "Bab 8. Penutup");
   if (report.closing) para(canvas, publicCopy(report.closing.closingText));
   para(canvas, `Sampai jumpa, ${sapaanOrAnda(report.salutation)}.`);
@@ -969,7 +984,7 @@ function paint(canvas: Canvas, report: ReportDocument) {
   paintLampiran(canvas, report);
 }
 
-function stamp(doc: Doc, chapters: string[]) {
+function stamp(doc: Doc, chapters: string[], identity: string) {
   const range = doc.bufferedPageRange();
   for (let index = 0; index < range.count; index += 1) {
     doc.switchToPage(range.start + index);
@@ -982,7 +997,7 @@ function stamp(doc: Doc, chapters: string[]) {
       drawMark(doc, 40, height - 30, 14, true);
       doc.font("Body").fontSize(8).fillColor("#ecfdf5");
       doc.text("www.bisnislevelup.id", 60, height - 26, { width: 180, height: 12, lineBreak: false });
-      doc.text("Rahasia peserta", 230, height - 26, { width: 160, height: 12, align: "center", lineBreak: false });
+      doc.text(identity, 200, height - 26, { width: width - 370, height: 12, align: "center", lineBreak: false, ellipsis: true });
       doc.font("Label").fontSize(9).fillColor(WHITE);
       doc.text(`Hal ${index + 1}/${range.count}`, width - 150, height - 27, { width: 110, align: "right", height: 12, lineBreak: false });
       continue;
@@ -999,7 +1014,7 @@ function stamp(doc: Doc, chapters: string[]) {
     doc.restore();
     doc.font("Body").fontSize(8).fillColor(MUTED);
     doc.text("www.bisnislevelup.id", 46, height - 28, { width: 170, height: 12, lineBreak: false });
-    doc.text("Rahasia peserta", 220, height - 28, { width: 150, height: 12, align: "center", lineBreak: false });
+    doc.text(identity, 180, height - 28, { width: width - 360, height: 12, align: "center", lineBreak: false, ellipsis: true });
     doc.font("Label").fontSize(9).fillColor(EMERALD_TEXT);
     doc.text(`Hal ${index + 1}/${range.count}`, width - 150, height - 29, { width: 104, align: "right", height: 12, lineBreak: false });
   }
@@ -1027,12 +1042,12 @@ export function buildReportPdf(report: ReportDocument, options?: { compress?: bo
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.registerFont("Heading", face.heading);
     doc.registerFont("Label", face.label);
+    doc.registerFont("Albert", face.albert);
     doc.registerFont("Body", face.body);
     doc.registerFont("BodyBold", face.bodyBold);
-    doc.registerFont("Symbol", face.symbol);
-    const canvas: Canvas = { doc, chapter: "Sampul", chapters: ["Sampul"], page: 0 };
+    const canvas: Canvas = { doc, chapter: "Sampul", painted: "", chapters: ["Sampul"], page: 0 };
     paint(canvas, report);
-    stamp(doc, canvas.chapters);
+    stamp(doc, canvas.chapters, footerIdentity(report));
     doc.end();
   });
 }

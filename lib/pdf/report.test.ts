@@ -36,6 +36,7 @@ function section(partial: Partial<ReportSection> & Pick<ReportSection, "code" | 
 function document(overrides: Partial<ReportDocument> = {}): ReportDocument {
   return {
     sessionId: "41",
+    sessionCode: "INV-SAMPLE",
     auditCode: "audit_1_2",
     auditName: "Audit Fase 1 ke 2",
     gateDesc: "Model berulang dan uang terpisah.",
@@ -130,9 +131,9 @@ test("PDF menyebut dasar skor, gerbang, area risiko, dan menyembunyikan panduan 
   assert.match(text, /Gerbang Fase 1: Krisis Kepemimpinan — sudah terlewati/);
   assert.match(text, /Bab 4\. Area risiko/);
   assert.match(text, new RegExp(SIAP_NAIK_RISK_NOTE));
-  assert.match(text, /Area risiko · Seksi B\. Penjualan/);
+  assert.match(text, /B\. Penjualan: 40%/);
   assert.match(text, new RegExp(KEY_NA_NOTE));
-  assert.match(text, /Cari Makan → Cari Duit/);
+  assert.match(text, /Cari Makan ke Cari Duit/);
   assert.match(text, /WIB/);
   assert.match(text, /System Ready/);
   assert.doesNotMatch(text, /slide Anda/);

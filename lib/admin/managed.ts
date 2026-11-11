@@ -271,7 +271,7 @@ export async function saveTemplate(input: TemplateInput, id?: string) {
     }
     const { rows } = await pool.query(
       `UPDATE notification_templates
-       SET event_trigger=$1, channel=$2, subject=$3, message_content=$4, is_active=$5, updated_at=NOW()
+       SET event_trigger=$1, channel=$2, subject=$3, message_content=$4, is_active=$5, edited_in_panel=true, updated_at=NOW()
        WHERE id::text=$6 RETURNING id::text`,
       [input.eventTrigger.trim(), input.channel.trim(), clean(input.subject), input.messageContent.trim(), input.isActive, id],
     );

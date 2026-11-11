@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Instrument, SavedAnswer } from "@/lib/db/portal";
 import type { AnswerCode } from "@/lib/scoring";
-import { clampCursor, nextAfterAnswer, resumePosition, type ResumeCursor } from "@/lib/audit/runner-progress";
+import { answerInputBlocked, clampCursor, nextAfterAnswer, resumePosition, type ResumeCursor } from "@/lib/audit/runner-progress";
 import { useAnswerSync } from "./use-answer-sync";
 
 export function AuditRunner({
@@ -36,6 +36,7 @@ export function AuditRunner({
   const [confirming, setConfirming] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const advanceGuardRef = useRef(0);
 
   if (sync.placement && appliedPlacement !== sync.placement) {
     setAppliedPlacement(sync.placement);
@@ -56,17 +57,25 @@ export function AuditRunner({
   const blocked = pending > 0 || finishing || submitting;
   const showBanner = pending > 0 && (sync.sync.offline || sync.sync.failed > 0);
 
+  function releaseAnswerGuard() {
+    advanceGuardRef.current = 0;
+  }
+
   function choose(answer: AnswerCode) {
     if (!current || readOnly || summary) return;
+    const now = Date.now();
+    if (answerInputBlocked(advanceGuardRef.current, now)) return;
     setError("");
     const index = questions.findIndex((question) => question.id === current.id);
     const advance = nextAfterAnswer(questions.length, index);
     setCursor(advance.cursor);
     setSummary(advance.summary);
+    advanceGuardRef.current = now;
     sync.enqueue(current.id, answer, sync.notes[current.id] ?? "");
   }
 
   function openSection(index: number) {
+    releaseAnswerGuard();
     const item = instrument.sections[index];
     if (!item) return;
     const blockedSection = instrument.sections.slice(0, index).some((prev) => !lockedIds.includes(prev.id));
@@ -151,7 +160,14 @@ export function AuditRunner({
     );
   }
 
-  const statusText = pending > 0 ? (showBanner ? "Belum tersimpan" : "Menyimpan...") : "Tersimpan";
+  const visibleMark = !summary && current ? sync.sync.byQuestion[current.id] : undefined;
+  const statusText = showBanner
+    ? "Belum tersimpan"
+    : visibleMark === "failed"
+      ? "Gagal disimpan"
+      : visibleMark === "saving"
+        ? "Menyimpan"
+        : "Tersimpan";
   const frontier = questions.findIndex((question) => !sync.answers[question.id]);
   const maxReach = readOnly || frontier < 0 ? questions.length - 1 : frontier;
 
@@ -206,6 +222,7 @@ export function AuditRunner({
               aria-label={`Butir ${question.number}${mark === "failed" ? ", gagal disimpan" : mark === "saving" ? ", menyimpan" : ""}`}
               onClick={() => {
                 if (!reachable) return;
+                releaseAnswerGuard();
                 setSummary(false);
                 setCursor(index);
                 setGuide(false);
@@ -235,7 +252,7 @@ export function AuditRunner({
       </div>
 
       {summary ? (
-        <article className="audit-card min-w-0 max-w-full break-words" style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 24, padding: 20 }}>
+        <article key={`summary-${section.id}`} className="audit-card audit-card-enter min-w-0 max-w-full break-words" style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 24, padding: 20 }}>
           <h2 className="min-w-0 break-words" style={{ fontSize: "1.2rem", lineHeight: 1.45, marginTop: 0 }}>
             {readOnly ? `Seksi ${section.code} terkunci` : `Seksi ${section.code} selesai diisi`}
           </h2>
@@ -246,7 +263,7 @@ export function AuditRunner({
           </p>
           {error || sync.sync.error ? <p style={{ color: "#dc2626" }}>{error || sync.sync.error}</p> : null}
           <div className="flex min-w-0 flex-wrap gap-2">
-            <button type="button" onClick={() => { setSummary(false); setCursor(0); }} style={ghost}>
+            <button type="button" onClick={() => { releaseAnswerGuard(); setSummary(false); setCursor(0); }} style={ghost}>
               Tinjau butir
             </button>
             {sectionDone && !readOnly ? (
@@ -263,7 +280,7 @@ export function AuditRunner({
           {pending > 0 ? <p style={{ color: "#92400e" }}>Menunggu semua jawaban terkonfirmasi tersimpan di server.</p> : null}
         </article>
       ) : current ? (
-        <article className="audit-card min-w-0 max-w-full break-words" style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 24, padding: 20 }}>
+        <article key={current.id} className="audit-card audit-card-enter min-w-0 max-w-full break-words" style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 24, padding: 20 }}>
           <div className="audit-card-head flex min-w-0 flex-wrap items-center gap-2">
             <span style={{ fontWeight: 800 }}>No. {current.number}</span>
             {current.isKey ? (
@@ -314,6 +331,7 @@ export function AuditRunner({
               type="button"
               disabled={cursorSafe === 0}
               onClick={() => {
+                releaseAnswerGuard();
                 setSummary(false);
                 setCursor(cursorSafe - 1);
               }}

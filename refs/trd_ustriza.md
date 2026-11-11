@@ -95,7 +95,7 @@ Next.js Server Component (RSC)    ← SSR, data fetch di sini
 | **Payment 2** | Midtrans | v1 | Snap, Direct Charge |
 | **Email** | Resend | Latest | `resend` + React Email |
 | **Deployment** | Vercel | - | Pro plan |
-| **PDF** | `@react-pdf/renderer` | Latest | Server-side generation |
+| **PDF** | PDFKit (`pdfkit`) | 0.20.x | Penyimpangan dari baris `@react-pdf/renderer` di dokumen ini. PDFKit dipilih karena bundle lebih kecil, font Albert Sans/Cabin/subset simbol bisa di-embed langsung, dan generasi di fungsi Vercel lebih ringan. Jangan pindah ke `@react-pdf` pada ronde ini. |
 | **Excel** | `xlsx` (SheetJS) | Latest | Read/write xlsx |
 | **Rich Text** | `@tiptap/react` | Latest | Editor + extensions |
 | **Drag & Drop** | `dnd-kit` | Latest | Sortable, draggable |

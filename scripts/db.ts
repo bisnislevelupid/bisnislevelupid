@@ -1,9 +1,30 @@
+import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
-import { Pool, neonConfig } from "@neondatabase/serverless";
+import { Pool as NeonPool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 
 neonConfig.webSocketConstructor = ws;
+
+type SqlPool = {
+  query: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
+  end: () => Promise<void>;
+};
+
+function openPool(url: string): SqlPool {
+  let host = "";
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    host = "";
+  }
+  if (host === "localhost" || host === "127.0.0.1" || host === "") {
+    const require = createRequire(import.meta.url);
+    const { Pool } = require("pg") as { Pool: new (config: { connectionString: string }) => SqlPool };
+    return new Pool({ connectionString: url });
+  }
+  return new NeonPool({ connectionString: url });
+}
 
 function loadEnv() {
   let raw: string;
@@ -44,9 +65,21 @@ export async function runSqlFile(filename: string) {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL missing");
   const sql = readFileSync(resolve(process.cwd(), filename), "utf8");
-  const pool = new Pool({ connectionString: url });
+  const pool = openPool(url);
   try {
     await pool.query(sql);
+    if (basename(filename) === "seed_report_content.sql") {
+      const { rows } = await pool.query(`
+        SELECT 'narratives' AS table_name, count(*)::int AS rows FROM report_status_narratives
+        UNION ALL SELECT 'sections', count(*)::int FROM section_education
+        UNION ALL SELECT 'coaching', count(*)::int FROM question_coaching
+        UNION ALL SELECT 'closings', count(*)::int FROM phase_report_closings
+        UNION ALL SELECT 'triggers', count(*)::int FROM recommendation_triggers
+        UNION ALL SELECT 'status_recs', count(*)::int FROM report_status_recommendations
+        UNION ALL SELECT 'draft_coaching', count(*)::int FROM question_coaching WHERE review_status = 'draft'
+      `);
+      console.table(rows);
+    }
     if (basename(filename) === "seed_question_bank.sql") {
       const { rows } = await pool.query<{
         code: string;

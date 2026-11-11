@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [new URL("https://lh3.googleusercontent.com/**")],
   },
+  serverExternalPackages: ["pdfkit"],
   async headers() {
     const noStore = [{ key: "Cache-Control", value: "private, no-store" }];
     return [

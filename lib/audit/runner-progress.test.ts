@@ -2,14 +2,22 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  absorbQueues,
+  answerInputBlocked,
+  bootAuditState,
   clampCursor,
   isStaleSave,
   combineAnswers,
+  JOURNAL_TTL_MS,
   mergeSaved,
   nextAfterAnswer,
   parsePending,
+  reconcilePending,
+  resolveUnapplied,
+  responseCountsAsSaved,
   resumePosition,
   retryDelayMs,
+  syncJournal,
 } from "./runner-progress";
 
 const sections = [
@@ -127,6 +135,137 @@ test("pending storage keeps the newest seq per question and drops garbage", () =
     [{ questionId: "q70", answer: "YA", note: "", seq: 2 }],
   );
   assert.deepEqual(parsePending(JSON.stringify({ v: 2, items: [] })), []);
+});
+
+test("an ack newer than the SSR payload is restored and resent", () => {
+  const now = 1_700_000_000_000;
+  const booted = bootAuditState({
+    now,
+    server: [
+      { questionId: "q3", answer: "YA", note: null, clientSeq: 10 },
+      { questionId: "q4", answer: "YA", note: null, clientSeq: 11 },
+    ],
+    pending: [],
+    journal: [
+      { questionId: "q3", answer: "TIDAK", note: "", seq: 40, ackedAt: now - 1000 },
+      { questionId: "q4", answer: "TIDAK", note: "catatan", seq: 41, ackedAt: now - 1000 },
+    ],
+    recalled: null,
+  });
+  assert.equal(booted.answers.q3, "TIDAK");
+  assert.equal(booted.answers.q4, "TIDAK");
+  assert.equal(booted.notes.q4, "catatan");
+  assert.deepEqual(
+    booted.pending.map((item) => item.questionId).sort(),
+    ["q3", "q4"],
+  );
+  assert.ok(booted.nextSeq > 41);
+  assert.ok(booted.nextSeq > 11);
+});
+
+test("a journal entry the server already stored is not resent", () => {
+  const now = 1_700_000_000_000;
+  const booted = bootAuditState({
+    now,
+    server: [{ questionId: "q3", answer: "TIDAK", note: null, clientSeq: 40 }],
+    pending: [],
+    journal: [{ questionId: "q3", answer: "TIDAK", note: "", seq: 40, ackedAt: now - 1000 }],
+    recalled: null,
+  });
+  assert.deepEqual(booted.pending, []);
+  assert.deepEqual(booted.journal, []);
+  assert.equal(booted.answers.q3, "TIDAK");
+});
+
+test("journal entries older than 24h are dropped", () => {
+  const now = 1_700_000_000_000;
+  const booted = bootAuditState({
+    now,
+    server: [{ questionId: "q3", answer: "YA", note: null, clientSeq: 10 }],
+    pending: [],
+    journal: [{ questionId: "q3", answer: "TIDAK", note: "", seq: 40, ackedAt: now - JOURNAL_TTL_MS }],
+    recalled: null,
+  });
+  assert.deepEqual(booted.journal, []);
+  assert.deepEqual(booted.pending, []);
+  assert.equal(booted.answers.q3, "YA");
+});
+
+test("applied:false is not treated as saved", () => {
+  const sent = { questionId: "q3", answer: "TIDAK" as const, note: "", seq: 10 };
+  assert.equal(responseCountsAsSaved({ applied: false }), false);
+  assert.equal(responseCountsAsSaved({ applied: true }), true);
+  const same = resolveUnapplied(sent, { clientSeq: 10, answer: "YA", note: null });
+  assert.equal(same.action, "requeue");
+  if (same.action === "requeue") assert.equal(same.seq, 11);
+  const older = resolveUnapplied(sent, { clientSeq: 4, answer: "YA", note: null });
+  assert.equal(older.action, "requeue");
+  if (older.action === "requeue") assert.equal(older.seq, 11);
+  const newer = resolveUnapplied(sent, { clientSeq: 12, answer: "YA", note: "x" });
+  assert.deepEqual(newer, { action: "adopt", answer: "YA", note: "x", seq: 12 });
+});
+
+test("two tabs do not erase each other's pending answers", () => {
+  const journal = [{ questionId: "q3", answer: "YA" as const, note: "", seq: 10, ackedAt: 1 }];
+  const stored = [{ questionId: "q4", answer: "TIDAK" as const, note: "", seq: 20 }];
+  assert.deepEqual(reconcilePending(stored, [], journal), stored);
+  const absorbed = absorbQueues(stored, [], journal, [], [], 1_000);
+  assert.deepEqual(absorbed.pending, stored);
+  const resend = { questionId: "q3", answer: "TIDAK" as const, note: "", seq: 40 };
+  const kept = absorbQueues(
+    [],
+    [resend],
+    [],
+    [{ questionId: "q3", answer: "TIDAK", note: "", seq: 40, ackedAt: 1_000 }],
+    [{ questionId: "q3", answer: "YA", note: null, clientSeq: 10 }],
+    2_000,
+  );
+  assert.deepEqual(kept.pending, [resend]);
+});
+
+test("startup seq is greater than the server seq", () => {
+  const booted = bootAuditState({
+    now: 100,
+    server: [{ questionId: "q3", answer: "YA", note: null, clientSeq: 500 }],
+    pending: [{ questionId: "q9", answer: "YA", note: "", seq: 480 }],
+    journal: [],
+    recalled: null,
+  });
+  assert.equal(booted.nextSeq, 501);
+  assert.ok(booted.nextSeq > 500);
+  assert.ok(booted.nextSeq > 480);
+});
+
+test("answer input is ignored for 300ms after auto-advance", () => {
+  assert.equal(answerInputBlocked(1000, 1299), true);
+  assert.equal(answerInputBlocked(1000, 1300), false);
+  assert.equal(answerInputBlocked(0, 1300), false);
+});
+
+test("merging journals does not resurrect an entry the server already stored", () => {
+  const now = 1_700_000_000_000;
+  const server = [{ questionId: "q3", answer: "TIDAK" as const, note: null, clientSeq: 40 }];
+  const synced = syncJournal(
+    [{ questionId: "q3", answer: "YA", note: "", seq: 10, ackedAt: now - 1000 }],
+    [{ questionId: "q3", answer: "TIDAK", note: "", seq: 40, ackedAt: now - 500 }],
+    server,
+    now,
+  );
+  assert.deepEqual(synced, []);
+  const ahead = syncJournal(
+    [{ questionId: "q4", answer: "TIDAK", note: "", seq: 20, ackedAt: now }],
+    [],
+    [{ questionId: "q4", answer: "YA", note: null, clientSeq: 11 }],
+    now,
+  );
+  assert.equal(ahead.length, 1);
+  assert.equal(ahead[0]?.seq, 20);
+});
+
+test("question change transition is short", () => {
+  const css = readFileSync(new URL("../../app/akun/portal.css", import.meta.url), "utf8");
+  assert.match(css, /\.audit-card-enter/);
+  assert.match(css, /animation:\s*audit-card-in\s+180ms/);
 });
 
 test("answer-save migration is additive", () => {

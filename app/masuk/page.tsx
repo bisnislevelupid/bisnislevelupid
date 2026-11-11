@@ -1,17 +1,19 @@
 import { redirect } from "next/navigation";
 import { GoogleButton } from "@/components/auth/google-button";
 import { getPesertaSession } from "@/lib/auth/session";
+import { internalNextPath } from "@/lib/site/next-path";
 
 export const dynamic = "force-dynamic";
 
 export default async function MasukPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   const session = await getPesertaSession();
-  if (session) redirect("/akun");
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
+  const dest = internalNextPath(next) ?? "/akun";
+  if (session) redirect(dest);
   return (
     <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "linear-gradient(180deg,#f0fdf4,#fff)", padding: 24 }}>
       <section style={{ width: "min(440px, 100%)", background: "#fff", border: "1px solid #d1fae5", borderRadius: 24, padding: 32, boxShadow: "0 20px 50px rgba(5,150,105,.08)" }}>
@@ -23,7 +25,7 @@ export default async function MasukPage({
             Login Google ditolak. Akun nonaktif atau tidak bisa dibuat.
           </p>
         ) : null}
-        <GoogleButton realm="peserta" callbackUrl="/akun" />
+        <GoogleButton realm="peserta" callbackUrl={dest} />
       </section>
     </main>
   );

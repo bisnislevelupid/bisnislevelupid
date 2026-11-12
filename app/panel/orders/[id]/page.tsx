@@ -2,7 +2,8 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderDetail } from "@/lib/admin/orders";
-import { formatRupiah, statusText, uniqueTransferCode } from "@/lib/admin/format";
+import { formatRupiah, uniqueTransferCode } from "@/lib/admin/format";
+import { codeLabel } from "@/lib/admin/labels";
 import { formatWib } from "@/lib/portal/labels";
 import { OrderHeadline } from "../order-status";
 
@@ -101,6 +102,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
       <section style={{ ...card, marginTop: 16 }}>
         <h2 style={heading}>Jejak pembayaran</h2>
+        <div className="panel-as-cards">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>{["Endpoint", "Tipe", "HTTP", "Waktu"].map((head) => <th key={head} style={th}>{head}</th>)}</tr>
@@ -108,15 +110,16 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <tbody>
             {detail.logs.map((log) => (
               <tr key={String(log.id)}>
-                <td style={td}>{String(log.endpoint ?? "—")}</td>
-                <td style={td}>{statusText(String(log.type ?? ""))}</td>
-                <td style={td}>{String(log.http_status ?? "—")}</td>
-                <td style={td}>{formatWib(log.created_at as string | null) || "—"}</td>
+                <td data-label="Endpoint" style={td}><span>{String(log.endpoint ?? "—")}</span></td>
+                <td data-label="Tipe" style={td}>{codeLabel(String(log.type ?? ""))}</td>
+                <td data-label="HTTP" style={td}>{String(log.http_status ?? "—")}</td>
+                <td data-label="Waktu" style={td}>{formatWib(log.created_at as string | null) || "—"}</td>
               </tr>
             ))}
-            {!detail.logs.length ? <tr><td style={td} colSpan={4}>Belum ada catatan dari gateway atau webhook.</td></tr> : null}
+            {!detail.logs.length ? <tr><td data-label="" style={td} colSpan={4}>Belum ada catatan dari gateway atau webhook.</td></tr> : null}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );

@@ -1,3 +1,4 @@
+import { codeLabel } from "@/lib/admin/labels";
 import { formatWib } from "@/lib/portal/labels";
 
 const MONEY_COLUMNS = new Set([
@@ -40,8 +41,6 @@ const STATUS_TEXT: Record<string, string> = {
   TIDAK_DAPAT_DINILAI: "Tidak dapat dinilai",
   PERCENTAGE: "Persen",
   FLAT: "Nominal",
-  MANUAL_CANCEL: "Pembatalan manual",
-  WEBHOOK: "Webhook",
 };
 
 /** Tiga digit terakhir nominal unik. 0 berarti tidak ada kode. */
@@ -70,23 +69,13 @@ export function formatRupiah(value: number | string | null | undefined) {
   return `${sign}Rp ${grouped}`;
 }
 
-const PAYMENT_TYPE_LABEL: Record<string, string> = {
-  va: "Virtual Account",
-  qr_code: "QRIS",
-  qris: "QRIS",
-  bank_transfer: "Transfer Bank",
-  "E-Wallet": "E-Wallet",
-  ewallet: "E-Wallet",
-  retail_outlet: "Gerai Ritel",
-};
-
 export function paymentTypeLabel(type: string) {
-  return PAYMENT_TYPE_LABEL[type] ?? type;
+  return codeLabel(type);
 }
 
 export function statusText(value: string) {
   if (!value) return "—";
-  return STATUS_TEXT[value] ?? value;
+  return STATUS_TEXT[value] ?? codeLabel(value);
 }
 
 export function statusColor(value: string) {
@@ -130,7 +119,8 @@ export function formatCell(
     return formatWib(value instanceof Date ? value : String(value)) || "—";
   }
   if (column.name === "status" || column.name === "commission_status") return statusText(String(value));
-  if (STATUS_TEXT[String(value)] && (column.name === "type" || column.name === "discount_type" || column.name === "commission_type")) {
+  if (column.name === "type" || column.name === "event_trigger") return codeLabel(String(value));
+  if (STATUS_TEXT[String(value)] && (column.name === "discount_type" || column.name === "commission_type")) {
     return statusText(String(value));
   }
   return String(value);

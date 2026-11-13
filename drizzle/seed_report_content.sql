@@ -975,17 +975,22 @@ FROM products p WHERE p.code = 'audit-coaching'
 ON CONFLICT (code) DO UPDATE SET product_id = EXCLUDED.product_id, name = EXCLUDED.name, short_desc = EXCLUDED.short_desc, price = EXCLUDED.price, cta_label = EXCLUDED.cta_label, cta_url = EXCLUDED.cta_url, trigger_condition = EXCLUDED.trigger_condition
 WHERE upsell_items.edited_in_panel = false AND upsell_items.content_status IS DISTINCT FROM 'APPROVED';
 
+-- test_questions tidak punya edited_in_panel. Audience hanya diisi saat masih NULL,
+-- supaya seed ulang tidak menimpa guidance_audience yang sudah diubah admin di panel.
+-- Daftar editor eksplisit dijalankan lebih dulu, selagi nilainya masih NULL.
+UPDATE test_questions tq SET guidance_audience = 'editor'
+FROM audit_transitions a, (VALUES ('audit_1_2', 43), ('audit_1_2', 52), ('audit_1_2', 77), ('audit_1_2', 82), ('audit_1_2', 83), ('audit_2_3', 8), ('audit_2_3', 76), ('audit_2_3', 77), ('audit_2_3', 79), ('audit_2_3', 80), ('audit_2_3', 87), ('audit_2_3', 90), ('audit_2_3', 150), ('audit_2_3', 153), ('audit_3_4', 26), ('audit_3_4', 28), ('audit_3_4', 46), ('audit_3_4', 55), ('audit_3_4', 60), ('audit_3_4', 63), ('audit_4_5', 9), ('audit_4_5', 23), ('audit_4_5', 26), ('audit_4_5', 28), ('audit_4_5', 35), ('audit_4_5', 39), ('audit_4_5', 43), ('audit_4_5', 46)) AS v(code, question_number)
+WHERE tq.audit_transition_id = a.id AND a.code = v.code AND tq.question_number = v.question_number
+  AND tq.guidance_audience IS NULL;
+
 UPDATE test_questions tq
 SET guidance_audience = CASE
   WHEN btrim(COALESCE(tq.guidance_text, '')) IN ('', '-') THEN 'missing'
   WHEN tq.guidance_text ~* 'slide anda|materi anda|materi \(sirah\)|sirah anda|catatan asli|versi lama berbunyi|ringkasan dari|koreksi:|konsolidasi dengan|relevan langsung|pt anda|restrukturisasi anda|rencana restrukturisasi' THEN 'editor'
   ELSE 'customer' END
 FROM audit_transitions a
-WHERE tq.audit_transition_id = a.id AND a.code IN ('audit_1_2','audit_2_3','audit_3_4','audit_4_5');
-
-UPDATE test_questions tq SET guidance_audience = 'editor'
-FROM audit_transitions a, (VALUES ('audit_1_2', 43), ('audit_1_2', 52), ('audit_1_2', 77), ('audit_1_2', 82), ('audit_1_2', 83), ('audit_2_3', 8), ('audit_2_3', 76), ('audit_2_3', 77), ('audit_2_3', 79), ('audit_2_3', 80), ('audit_2_3', 87), ('audit_2_3', 90), ('audit_2_3', 150), ('audit_2_3', 153), ('audit_3_4', 26), ('audit_3_4', 28), ('audit_3_4', 46), ('audit_3_4', 55), ('audit_3_4', 60), ('audit_3_4', 63), ('audit_4_5', 9), ('audit_4_5', 23), ('audit_4_5', 26), ('audit_4_5', 28), ('audit_4_5', 35), ('audit_4_5', 39), ('audit_4_5', 43), ('audit_4_5', 46)) AS v(code, question_number)
-WHERE tq.audit_transition_id = a.id AND a.code = v.code AND tq.question_number = v.question_number;
+WHERE tq.audit_transition_id = a.id AND a.code IN ('audit_1_2','audit_2_3','audit_3_4','audit_4_5')
+  AND tq.guidance_audience IS NULL;
 
 INSERT INTO site_settings (key, value) VALUES ('support_whatsapp', '') ON CONFLICT (key) DO NOTHING;
 

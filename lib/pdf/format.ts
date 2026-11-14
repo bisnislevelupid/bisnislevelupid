@@ -9,8 +9,17 @@ export const OTHER_RISK_NOTE =
   "Seksi dengan skor di bawah 50% adalah area risiko. Titik lemah ini perlu dibereskan, apa pun status keseluruhan audit.";
 
 export function sapaanOrAnda(value: string | null | undefined) {
-  const trimmed = value?.replace(/\s+/g, " ").trim() ?? "";
+  const trimmed = value?.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\s+/g, " ").trim() ?? "";
   return trimmed || "Anda";
+}
+
+/** Salam pembuka. Nama kosong, null, atau spasi tetap "Halo Anda,", tidak pernah "Halo,". */
+export function openingGreeting(value: string | null | undefined) {
+  return `Halo ${sapaanOrAnda(value)},`;
+}
+
+export function closingGreeting(value: string | null | undefined) {
+  return `Sampai jumpa, ${sapaanOrAnda(value)}.`;
 }
 
 export function formatPercent(score: number) {

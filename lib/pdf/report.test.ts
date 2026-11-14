@@ -283,12 +283,43 @@ test("teks meta editor tidak ikut tercetak", async () => {
 
 test("sapaan kosong tetap Anda dan sapaan terisi sama dengan sampul", async () => {
   const named = pdfText(await buildReportPdf(document({ salutation: "Pak Irvan" }), { compress: false })).replace(/\s+/g, " ");
-  assert.match(named, /Halo Pak Irvan/);
-  assert.match(named, /Pak Irvan/);
+  assert.match(named, /Halo Pak Irvan,/);
+  assert.match(named, /Sampai jumpa, Pak Irvan/);
   assert.doesNotMatch(named, /\bkamu\b/i);
-  const anon = pdfText(await buildReportPdf(document({ salutation: null, company: "Dapur Sari" }), { compress: false })).replace(/\s+/g, " ");
-  assert.match(anon, /Halo Anda/);
-  assert.doesNotMatch(anon, /\bkamu\b/i);
+  for (const salutation of [null, "", "   ", " \n\t "]) {
+    const anon = pdfText(await buildReportPdf(document({ salutation, company: "Dapur Sari" }), { compress: false })).replace(/\s+/g, " ");
+    assert.match(anon, /Halo Anda,/);
+    assert.match(anon, /Sampai jumpa, Anda/);
+    assert.doesNotMatch(anon, /Halo\s*,/);
+    assert.doesNotMatch(anon, /\bkamu\b/i);
+  }
+});
+
+test("kartu rekomendasi pendek tidak pecah dan teks panjang tidak hilang", async () => {
+  const marker = "akhirRekomendasiPanjang99";
+  const long = `${"Penjelasan panjang yang harus tetap terbaca. ".repeat(80)}${marker}`;
+  const pdf = await buildReportPdf(
+    document({
+      recommendations: [
+        { id: "short", type: "BUKU", title: "Buku Pendek", author: null, description: "Isi kartu pendek tetap bersama judul.", url: null, critical: false },
+        { id: "long", type: "BUKU", title: "Buku Panjang", author: null, description: long, url: null, critical: false },
+      ],
+    }),
+    { compress: false },
+  );
+  const dir = mkdtempSync(path.join(tmpdir(), "kartu-"));
+  const file = path.join(dir, "laporan.pdf");
+  writeFileSync(file, pdf);
+  const info = execFileSync("pdfinfo", [file], { encoding: "utf8" });
+  const count = Number(info.match(/Pages:\s+(\d+)/)?.[1] ?? 0);
+  let shortTogether = false;
+  for (let page = 1; page <= count; page += 1) {
+    const slice = execFileSync("pdftotext", ["-f", String(page), "-l", String(page), file, "-"], { encoding: "utf8" }).replace(/\s+/g, " ");
+    if (slice.includes("Buku Pendek") && slice.includes("Isi kartu pendek tetap bersama judul.")) shortTogether = true;
+  }
+  assert.equal(shortTogether, true);
+  const all = pdfText(pdf).replace(/\s+/g, " ");
+  assert.match(all, new RegExp(marker));
 });
 
 test("belum siap tidak menampilkan hero lulus saat skor butir biasa penuh", async () => {

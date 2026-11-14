@@ -7,15 +7,23 @@ import {
   formatAuditScore,
   isRiskSection,
   riskAreaNote,
+  closingGreeting,
+  openingGreeting,
   sapaanOrAnda,
   scoreBasisLine,
   sectionScoreView,
 } from "./format";
 
 test("sapaan kosong menjadi Anda", () => {
-  assert.equal(sapaanOrAnda(null), "Anda");
-  assert.equal(sapaanOrAnda("  "), "Anda");
+  for (const empty of [null, undefined, "", " ", "   ", "\n", "\t", " \u00A0 ", "\u200B"]) {
+    assert.equal(sapaanOrAnda(empty), "Anda");
+    assert.equal(openingGreeting(empty), "Halo Anda,");
+    assert.equal(closingGreeting(empty), "Sampai jumpa, Anda.");
+    assert.doesNotMatch(openingGreeting(empty), /Halo\s*,/);
+  }
   assert.equal(sapaanOrAnda("Pak Irvan"), "Pak Irvan");
+  assert.equal(openingGreeting("Pak Irvan"), "Halo Pak Irvan,");
+  assert.equal(closingGreeting("  Pak Irvan  "), "Sampai jumpa, Pak Irvan.");
 });
 
 test("dasar skor hanya butir non-kunci, Tidak Berlaku di luar penyebut", () => {

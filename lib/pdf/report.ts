@@ -18,6 +18,8 @@ import {
   isRiskSection,
   publicCopy,
   riskAreaNote,
+  closingGreeting,
+  openingGreeting,
   sapaanOrAnda,
   scoreBasisLine,
   statusActionLine,
@@ -84,7 +86,7 @@ const SIMULASI_PRODUCTS = [
 ] as const;
 
 function greeting(report: ReportDocument) {
-  return `Halo ${sapaanOrAnda(report.salutation)},`;
+  return openingGreeting(report.salutation);
 }
 
 function coachName(report: ReportDocument) {
@@ -171,9 +173,16 @@ function remember(canvas: Canvas) {
   if (!canvas.chapters[canvas.page]) canvas.chapters[canvas.page] = canvas.chapter;
 }
 
+function pageRoom(doc: Doc) {
+  return doc.page.height - doc.page.margins.top - doc.page.margins.bottom;
+}
+
 function ensure(canvas: Canvas, height: number) {
   const doc = canvas.doc;
-  if (doc.y + height <= doc.page.height - doc.page.margins.bottom) return;
+  const bottom = doc.page.height - doc.page.margins.bottom;
+  // Blok lebih tinggi dari satu halaman tidak dipaksa pindah; isinya mengalir.
+  if (height > pageRoom(doc)) return;
+  if (doc.y + height <= bottom) return;
   doc.addPage();
   canvas.page += 1;
   const continued = canvas.painted === canvas.chapter && !canvas.chapter.includes("(lanjutan)");
@@ -362,10 +371,10 @@ function paintCover(doc: Doc, report: ReportDocument) {
   const phase = report.fromPhaseNumber ? PHASE_SPEC[report.fromPhaseNumber] : undefined;
   const chip = phase ? `Fase ${report.fromPhaseNumber} · ${phase.name}` : "Fase bisnis";
   doc.font("Label").fontSize(10);
-  const chipWidth = Math.min(doc.widthOfString(chip) + 28, 300);
-  doc.roundedRect(40, 178, chipWidth, 22, 11).fill(WHITE);
-  doc.circle(52, 189, 4).fill(phase?.fill ?? EMERALD);
-  coverLine(doc, chip, 62, 183, 10, INK, chipWidth - 24, "Label");
+  const chipWidth = Math.min(doc.widthOfString(chip) + 36, 320);
+  doc.roundedRect(40, 174, chipWidth, 28, 14).fill(WHITE);
+  doc.circle(54, 188, 4).fill(phase?.fill ?? EMERALD);
+  coverLine(doc, chip, 66, 181, 10, INK, chipWidth - 32, "Label");
   write(doc, `${report.fromPhase} ke ${report.toPhase}`, 40, 208, {
     fontName: "Label",
     size: 12,
@@ -376,9 +385,9 @@ function paintCover(doc: Doc, report: ReportDocument) {
   });
 
   doc.font("Label").fontSize(11);
-  const badgeWidth = Math.min(doc.widthOfString(title) + 22, 280);
-  doc.roundedRect(40, 236, badgeWidth, 24, 12).fill(label.bg);
-  coverLine(doc, title, 40, 241, 11, label.color, badgeWidth, "Label");
+  const badgeWidth = Math.min(doc.widthOfString(title) + 28, 300);
+  doc.roundedRect(40, 230, badgeWidth, 30, 15).fill(label.bg);
+  coverLine(doc, title, 40, 238, 11, label.color, badgeWidth, "Label");
 
   const sheetY = 276;
   const sheetH = 490;
@@ -444,6 +453,11 @@ function callout(canvas: Canvas, title: string, body: string, fill: string, acce
   doc.font("Body").fontSize(10.5);
   const bodyHeight = doc.heightOfString(body, { width: w - 28, lineGap: 2 });
   const box = bodyHeight + 36;
+  if (box > pageRoom(doc)) {
+    h2(canvas, title);
+    para(canvas, body);
+    return;
+  }
   ensure(canvas, box + 8);
   const y = doc.y;
   doc.save();
@@ -598,11 +612,17 @@ function gapLines(item: ReportGap, section: ReportSection) {
 }
 
 function paintGap(canvas: Canvas, item: ReportGap, section: ReportSection) {
+  const doc = canvas.doc;
+  const lines = gapLines(item, section);
+  const steps = item.steps.filter((step) => step && !/^Tulis bukti minggu ini untuk butir \d+/i.test(step));
+  doc.font("Body").fontSize(10.5);
+  let height = 28;
+  for (const line of lines) height += doc.heightOfString(line, { width: contentWidth(doc), lineGap: 2 }) + 8;
+  for (const step of steps) height += doc.heightOfString(step, { width: contentWidth(doc) - 16, lineGap: 1 }) + 6;
+  if (height <= pageRoom(doc)) ensure(canvas, height);
   h2(canvas, `${item.isKey ? "Butir kunci" : "Butir"} #${item.number}`);
-  for (const line of gapLines(item, section)) para(canvas, line);
-  for (const step of item.steps) {
-    if (!/^Tulis bukti minggu ini untuk butir \d+/i.test(step)) bullet(canvas, publicCopy(step));
-  }
+  for (const line of lines) para(canvas, line);
+  for (const step of steps) bullet(canvas, publicCopy(step));
 }
 
 function cappedRecommendations(items: ReportRecommendation[]) {
@@ -622,6 +642,12 @@ function keyCard(canvas: Canvas, item: ReportGap, section: ReportSection) {
   for (const line of lines) box += doc.heightOfString(line, { width: inner, lineGap: 2 }) + 6;
   for (const step of steps) box += doc.heightOfString(step, { width: inner - 16, lineGap: 1 }) + 4;
   box += 8;
+  if (box > pageRoom(doc)) {
+    h2(canvas, `Bintang · Tidak · #${item.number}`);
+    for (const line of lines) para(canvas, line);
+    for (const step of steps) bullet(canvas, step);
+    return;
+  }
   ensure(canvas, box + 8);
   const y = doc.y;
   doc.save();
@@ -668,6 +694,13 @@ function productCard(canvas: Canvas, name: string, detail: string, priceLine: st
   doc.font("Body").fontSize(10);
   const detailH = doc.heightOfString(detail, { width: w - 28, lineGap: 1 });
   const box = detailH + 96;
+  if (box > pageRoom(doc)) {
+    h2(canvas, name);
+    para(canvas, detail);
+    para(canvas, priceLine);
+    pill(canvas, button, url);
+    return;
+  }
   ensure(canvas, box + 8);
   const y = doc.y;
   doc.save();
@@ -978,7 +1011,7 @@ function paint(canvas: Canvas, report: ReportDocument) {
 
   h1(canvas, "Bab 8. Penutup");
   if (report.closing) para(canvas, publicCopy(report.closing.closingText));
-  para(canvas, `Sampai jumpa, ${sapaanOrAnda(report.salutation)}.`);
+  para(canvas, closingGreeting(report.salutation));
 
   paintCta(canvas, report);
   paintLampiran(canvas, report);

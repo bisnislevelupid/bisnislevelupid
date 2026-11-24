@@ -120,6 +120,7 @@ export function PayView({
 }) {
   const [order, setOrder] = useState(initial);
   const [snapReady, setSnapReady] = useState(false);
+  const [snapSlow, setSnapSlow] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -139,12 +140,27 @@ export function PayView({
 
   useEffect(() => {
     if (!order.snap_token) return;
+    setSnapSlow(false);
+    const timeout = setTimeout(() => setSnapSlow(true), 10000);
     const script = document.createElement("script");
     script.src = snapSrc;
     script.setAttribute("data-client-key", clientKey);
-    script.onload = () => setSnapReady(true);
+    script.onload = () => {
+      clearTimeout(timeout);
+      setSnapReady(true);
+      setSnapSlow(false);
+      if (order.status === "PENDING") {
+        const snap = (window as unknown as { snap?: { pay: (token: string) => void } }).snap;
+        snap?.pay(order.snap_token!);
+      }
+    };
+    script.onerror = () => {
+      clearTimeout(timeout);
+      setSnapSlow(true);
+    };
     document.body.appendChild(script);
     return () => {
+      clearTimeout(timeout);
       script.remove();
     };
   }, [order.snap_token, clientKey, snapSrc]);
@@ -239,11 +255,21 @@ export function PayView({
             ) : null}
 
             {order.snap_token ? (
-              <button type="button" onClick={openSnap} disabled={!snapReady} className="btn btn-primary" style={{ width: "100%", marginTop: 16, borderRadius: 999 }}>
-                {snapReady ? "Buka popup GoPay" : "Menyiapkan GoPay..."}
-              </button>
+              <>
+                <button type="button" onClick={openSnap} disabled={!snapReady} className="btn btn-primary" style={{ width: "100%", marginTop: 16, borderRadius: 999 }}>
+                  {snapReady ? "Buka popup pembayaran" : "Menyiapkan popup pembayaran..."}
+                </button>
+                {snapSlow && !snapReady && order.payment_url ? (
+                  <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#fffbeb", border: "1px solid #fde68a", fontSize: "0.85rem", color: "#92400e" }}>
+                    <p style={{ margin: 0, marginBottom: 8 }}>Popup membutuhkan waktu lebih lama. Anda bisa lanjut langsung lewat halaman Midtrans:</p>
+                    <a href={order.payment_url} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ width: "100%", borderRadius: 999, display: "inline-flex", justifyContent: "center" }}>
+                      Buka Halaman Pembayaran Midtrans
+                    </a>
+                  </div>
+                ) : null}
+              </>
             ) : null}
-            {order.payment_url && order.method_type === "E-Wallet" ? (
+            {!order.snap_token && order.payment_url && order.method_type === "E-Wallet" ? (
               <a href={order.payment_url} className="btn btn-primary" style={{ width: "100%", marginTop: 16, borderRadius: 999 }}>
                 Lanjut ke pembayaran
               </a>

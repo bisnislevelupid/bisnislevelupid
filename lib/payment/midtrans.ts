@@ -12,14 +12,25 @@ export function snapScriptUrl() {
     : "https://app.sandbox.midtrans.com/snap/snap.js";
 }
 
-export async function createGopaySnap(input: {
+const MIDTRANS_ENABLED_PAYMENTS: Record<string, string[]> = {
+  GOPAY: ["gopay"],
+  MANDIRI: ["echannel"],
+  BRI: ["bri_va"],
+  BNI: ["bni_va"],
+  CIMB: ["cimb_va"],
+  PERMATA: ["permata_va"],
+};
+
+export async function createMidtransSnap(input: {
   invoice: string;
   amount: number;
   name: string;
   email: string;
   phone: string;
+  code?: string;
 }) {
   const endpoint = `${baseUrl()}/snap/v1/transactions`;
+  const enabledPayments = (input.code && MIDTRANS_ENABLED_PAYMENTS[input.code]) || ["gopay"];
   const body = {
     transaction_details: { order_id: input.invoice, gross_amount: input.amount },
     customer_details: {
@@ -27,7 +38,7 @@ export async function createGopaySnap(input: {
       email: input.email,
       phone: input.phone,
     },
-    enabled_payments: ["gopay"],
+    enabled_payments: enabledPayments,
     item_details: [
       { id: "audit", price: input.amount, quantity: 1, name: "BisnisLevelUp.id" },
     ],
@@ -44,7 +55,14 @@ export async function createGopaySnap(input: {
     body: JSON.stringify(body),
   });
   const response = (await res.json()) as { token?: string; redirect_url?: string };
-  return { endpoint, httpStatus: res.status, request: body, response, token: response.token };
+  return {
+    endpoint,
+    httpStatus: res.status,
+    request: body,
+    response,
+    token: response.token,
+    redirectUrl: response.redirect_url,
+  };
 }
 
 export function verifyMidtransSignature(input: {

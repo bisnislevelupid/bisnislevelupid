@@ -6,7 +6,7 @@ import { lookupAuditNames } from "@/lib/db/public";
 import { fillPlaceholders, rupiah, sanitizeEmailHtml } from "@/lib/email/html";
 import { paymentPlaceholderValues } from "@/lib/payment/bank-details";
 import { createXenditPayment } from "@/lib/payment/xendit";
-import { createGopaySnap } from "@/lib/payment/midtrans";
+import { createMidtransSnap } from "@/lib/payment/midtrans";
 import { codesFromUnlocked } from "@/lib/portal/labels";
 
 function invoiceCode() {
@@ -99,9 +99,6 @@ export async function placeOrder(input: {
       );
       const pm = method.rows[0];
       if (!pm) throw new Error("Metode bayar tidak ditemukan");
-      if (pm.provider === "Midtrans" && pm.code !== "GOPAY") {
-        throw new Error("Midtrans hanya untuk GoPay");
-      }
 
       let discount = 0;
       let couponId: string | null = null;
@@ -262,23 +259,24 @@ export async function placeOrder(input: {
         );
         if (pm.is_redirect && result.redirect) redirect = result.redirect;
       } else if (pm.provider === "Midtrans") {
-        const result = await createGopaySnap({
+        const result = await createMidtransSnap({
           invoice,
           amount: chargeAmount,
           name: input.name,
           email: input.email,
           phone: input.phone,
+          code: pm.code,
         });
         await client.query(
           `INSERT INTO payment_logs (invoice_code, order_id, endpoint, type, request_payload, response_payload, http_status)
            VALUES ($1,$2,$3,'PAYMENT_REQUEST',$4,$5,$6)`,
           [invoice, orderId, result.endpoint, JSON.stringify(result.request), JSON.stringify(result.response), result.httpStatus],
         );
-        if (!result.token) throw new Error("Snap GoPay gagal dibuat");
-        await client.query(`UPDATE orders SET snap_token=$1, payment_ref=$1, updated_at=NOW() WHERE id=$2`, [
-          result.token,
-          orderId,
-        ]);
+        if (!result.token) throw new Error("Snap Midtrans gagal dibuat");
+        await client.query(
+          `UPDATE orders SET snap_token=$1, payment_ref=$1, payment_url=$2, updated_at=NOW() WHERE id=$3`,
+          [result.token, result.redirectUrl ?? null, orderId],
+        );
       }
 
       await client.query("COMMIT");

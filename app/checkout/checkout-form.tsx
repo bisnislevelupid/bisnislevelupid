@@ -322,7 +322,7 @@ export function CheckoutForm({
       setError(json.error ?? "Checkout gagal");
       return;
     }
-    clearDraft();
+    flushDraft();
     setPhase("redirect");
     if (json.data?.redirect) {
       window.location.href = json.data.redirect;
